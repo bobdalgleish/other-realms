@@ -1,8 +1,5 @@
 module LogRecord.Log where
-import Data.Time
-
--- |Time that the log record was created
-data Timestamp = Timestamp UTCTime deriving Show
+import LogRecord.Timestamp
 
 -- |Source of the log, such as server
 data Source = Source String deriving Show

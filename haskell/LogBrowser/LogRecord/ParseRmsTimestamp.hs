@@ -11,7 +11,6 @@ import LogRecord.Timestamp
   meaning 2018, Jan 2, 13:14:22.977
 -}
 
-
 digitPair :: Parser Int
 digitPair = do
   d1 <- digit
