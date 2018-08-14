@@ -8,7 +8,10 @@ import Data.List (break)
 matchRecord :: (Maybe (Log String)) -> String -> [Log String]
 matchRecord prior line =
   case convertToDateTime line of
-    Just ts -> [prior, matchApplication (Log { timestamp = Timestamp ts })  (drop 22 line)]
+    Just ts -> let partial = matchApplication (Log { timestamp = Timestamp ts })  (drop 22 line)
+               in case prior of
+                    Just priorLog -> [priorLog,partial]
+                    Nothing -> [partial]
     Nothing -> case prior of
                  Just log -> [mergeBody log line]
                  Nothing  -> []

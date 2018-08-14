@@ -9,6 +9,8 @@ data Timestamp = Timestamp UTCTime
 showTimestamp :: Timestamp -> String
 showTimestamp (Timestamp t) = fmtTime millisecondsFmt t
 
+instance Show Timestamp where show = showTimestamp
+
 -- |Convert a number to a year. Two digit years in the range 70 to 99 are in the 20th century
 fromYear :: Int -> Int
 fromYear y
