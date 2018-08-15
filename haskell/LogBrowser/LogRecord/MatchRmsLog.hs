@@ -3,12 +3,27 @@ module LogRecord.MatchRmsLog where
 import LogRecord.Log
 import LogRecord.Timestamp
 import LogRecord.MatchRmsTimestamp
-import Data.List (break)
+import LogRecord.Matchers
+
+mr :: Maybe (Log String) -> [String] -> [Log String]
+mr Nothing [] = []
+mr (Just l) [] = [l]
+mr ls (ln:lns) = case matchRecord ls ln of
+                   (l1:l2:[]) -> l1 : (mr (Just l2) lns)
+                   (l1:[])    -> mr (Just l1) lns
+                     
 
 matchRecord :: (Maybe (Log String)) -> String -> [Log String]
 matchRecord prior line =
   case convertToDateTime line of
-    Just ts -> let partial = matchApplication (newLog (Timestamp ts) (Source "RMS1") "Placeholder")  (drop 22 line)
+    Just ts -> let (app, appr) = break (':'==) (drop 22 line)
+                   (thr, thrr) = break ('|'==) (tail appr)
+                   partial = matchBody (newLog
+                                        (Timestamp ts)
+                                        (Source "RMS1")
+                                        (Application app)
+                                        (Thread thr)
+                                        "Placeholder")  (tail thrr)
                in case prior of
                     Just priorLog -> [priorLog,partial]
                     Nothing -> [partial]
@@ -21,42 +36,25 @@ mergeBody log line = let (Body bdy) = body log
                          newBody = bdy ++ "\n" ++ line
                      in log { body = Body newBody }
 
--- |match the application, thread fields and start parsing the body
-matchApplication :: Log String -> String -> Log String
-matchApplication log line =
-  let (app, appr) = break (==':') line
-      (thr, thrr) = break (=='|') (tail appr)
-  in matchBody (log {application = Application app, thread = Thread thr}) (tail thrr)
-
 -- |match the body portion, followed by the postamble
 matchBody :: Log String -> String -> Log String
 matchBody log line =
-  let allBody = line
-      parts = splitBy ('|'==) allBody
-      (bdy, meths) = breakEnd ('|'==) allBody
-      (mth:mod:lno:lvl:[]) = splitBy (':'==) meths
-  in log { body = Body bdy,
-           methodName = MethodName mth,
-           moduleName = ModuleName mod,
-           moduleLineNo = MethodLineNumber lno,
-           logLevel = toLogLevel lvl
-         }
+  let parts = splitBy ('|'==) line
+  in if length parts == 1
+  then log { body = Body line }
+  else case getPostAmble (last parts) of
+         Just (mth, mod, lno, lvl) ->
+           let len = length (last parts)
+               bdy = take (length line - len - 1) line
+           in log { body = Body bdy,
+                    methodName = MethodName mth,
+                    moduleName = ModuleName mod,
+                    moduleLineNo = MethodLineNumber lno,
+                    logLevel = toLogLevel lvl
+                  }
+         Nothing -> log { body = Body line }
 
 getPostAmble :: String -> Maybe (String, String, String, String)
 getPostAmble post = case splitBy (':'==) post of
                       (mth: mod: lno: lvl: []) -> Just (mth, mod, lno, lvl)
                       _ -> Nothing
-
--- |Split on the last matching character
-breakEnd :: (Char -> Bool) -> String -> (String, String)
-breakEnd c s = let parts = splitBy c s
-                   len   = length parts
-                   back  = last parts
-                   front = if len > 1 then (take (length s - 1 - length back) s) else []
-               in (front, back)
-
--- |Split on the matching character
-splitBy :: (Char -> Bool) -> String -> [String]
-splitBy _ [] = []
-splitBy p s = let (front, back) = break p s
-              in front : if length back > 1 then (splitBy p (tail back)) else []
