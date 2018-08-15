@@ -2,8 +2,8 @@ module LogRecord.MatchSimTimestamp where
 
 import Text.Regex.Base.RegexLike
 import Text.Regex.PCRE
-import LogRecord.MatchRmsTimestamp
+import LogRecord.MatchTimestamp
 
 simDateTime = longDate "/" ++ " " ++ timeMs ":"
 
-convertSimToDateTime = dateTimeConverter (makeRegex simDateTime :: Regex) dtFragments
+convertSimDateTime = dateTimeConverter (makeRegex simDateTime :: Regex) dtFragments
