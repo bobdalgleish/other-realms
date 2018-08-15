@@ -49,3 +49,15 @@ data Log a = Log { timestamp :: Timestamp
                  , logLevel :: LogLevel
                  }
            deriving Show
+
+newLog :: Timestamp -> Source -> a -> Log a
+newLog t src s = Log { timestamp = t,
+                   source = src,
+                   application = Application s,
+                   thread = Thread s,
+                   body = Body s,
+                   methodName = MethodName s,
+                   moduleName = ModuleName s,
+                   moduleLineNo = MethodLineNumber s,
+                   logLevel = LogInfo
+                     }

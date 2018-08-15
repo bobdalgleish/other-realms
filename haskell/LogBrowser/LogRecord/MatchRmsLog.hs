@@ -8,7 +8,7 @@ import Data.List (break)
 matchRecord :: (Maybe (Log String)) -> String -> [Log String]
 matchRecord prior line =
   case convertToDateTime line of
-    Just ts -> let partial = matchApplication (Log { timestamp = Timestamp ts, source = Source "RMS1" })  (drop 22 line)
+    Just ts -> let partial = matchApplication (newLog (Timestamp ts) (Source "RMS1") "Placeholder")  (drop 22 line)
                in case prior of
                     Just priorLog -> [priorLog,partial]
                     Nothing -> [partial]
@@ -43,9 +43,9 @@ matchBody log line =
          }
 
 getPostAmble :: String -> Maybe (String, String, String, String)
-getPostAmble post =
-  let parts = splitBy (':'==) post
-  if length parts != 4 then Nothing else let (mth: mod: lno: lvl: []) = parts in Just (mth, mod, lno, lvl) 
+getPostAmble post = case splitBy (':'==) post of
+                      (mth: mod: lno: lvl: []) -> Just (mth, mod, lno, lvl)
+                      _ -> Nothing
 
 -- |Split on the last matching character
 breakEnd :: (Char -> Bool) -> String -> (String, String)
