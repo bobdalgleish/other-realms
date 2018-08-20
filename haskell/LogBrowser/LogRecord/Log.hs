@@ -10,6 +10,9 @@ data Application a =  Application a deriving Show
 -- |Body text of the log
 data Body a = Body a deriving Show
 
+bodyOf :: Body a -> a
+bodyOf (Body b) = b
+
 -- |Thread identifier
 data Thread a = Thread a deriving Show
 
@@ -61,3 +64,6 @@ newLog t src app thr s = Log { timestamp = t,
                    moduleLineNo = MethodLineNumber s,
                    logLevel = LogInfo
                      }
+
+showFields :: Log String -> String
+showFields log = (show $ timestamp log) ++ "\t" ++ (bodyOf $ body log)

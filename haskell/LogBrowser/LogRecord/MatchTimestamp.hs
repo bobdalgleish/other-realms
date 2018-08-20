@@ -4,6 +4,7 @@ import Text.Regex.Base.RegexLike
 import Text.Regex.PCRE
 import Data.List
 import Data.Array.IArray
+import Data.Time
 import LogRecord.Timestamp
 
 -- |Pair of digits

@@ -10,12 +10,12 @@ import LogRecord.Matchers
 matchSimLogs :: Maybe (Log String) -> [String] -> [Log String]
 matchSimLogs Nothing [] = []
 matchSimLogs (Just l) [] = [l]
-matchSimLogs ls (ln:lns) = case matchRecord ls ln of
+matchSimLogs ls (ln:lns) = case matchSimRecord ls ln of
                              (l1:l2:[]) -> l1 : (matchSimLogs (Just l2) lns)
                              (l1:[]) -> matchSimLogs (Just l1) lns
 
-matchRecord :: (Maybe (Log String)) -> String -> [Log String]
-matchRecord prior line =
+matchSimRecord :: (Maybe (Log String)) -> String -> [Log String]
+matchSimRecord prior line =
   case convertSimDateTime line of
     Just ts -> let parts = splitBy ('\t'==) line
                    log = Log { timestamp = Timestamp ts,
@@ -31,3 +31,8 @@ matchRecord prior line =
                in case prior of
                     Just priorLog -> [priorLog, log]
                     Nothing -> [log]
+      Nothing -> case prior of
+                   Just log -> let (Body b) = body log
+                                   nb = b ++ "\n" ++ line
+                               in [log { body = Body nb }]
+                   Nothing -> []

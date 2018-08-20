@@ -5,16 +5,16 @@ import LogRecord.Timestamp
 import LogRecord.MatchRmsTimestamp
 import LogRecord.Matchers
 
-mr :: Maybe (Log String) -> [String] -> [Log String]
-mr Nothing [] = []
-mr (Just l) [] = [l]
-mr ls (ln:lns) = case matchRecord ls ln of
-                   (l1:l2:[]) -> l1 : (mr (Just l2) lns)
-                   (l1:[])    -> mr (Just l1) lns
+matchRms :: Maybe (Log String) -> [String] -> [Log String]
+matchRms Nothing [] = []
+matchRms (Just l) [] = [l]
+matchRms ls (ln:lns) = case matchRmsRecord ls ln of
+                   (l1:l2:[]) -> l1 : (matchRms (Just l2) lns)
+                   (l1:[])    -> matchRms (Just l1) lns
                      
 
-matchRecord :: (Maybe (Log String)) -> String -> [Log String]
-matchRecord prior line =
+matchRmsRecord :: (Maybe (Log String)) -> String -> [Log String]
+matchRmsRecord prior line =
   case convertToDateTime line of
     Just ts -> let (app, appr) = break (':'==) (drop 22 line)
                    (thr, thrr) = break ('|'==) (tail appr)
