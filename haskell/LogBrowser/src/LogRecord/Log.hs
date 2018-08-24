@@ -67,3 +67,6 @@ newLog t src app thr s = Log { timestamp = t,
 
 showFields :: Log String -> String
 showFields log = (show $ timestamp log) ++ "\t" ++ (bodyOf $ body log)
+
+showShortFields :: Log String -> String
+showShortFields log = (showShortTime $ timestamp log) ++ "\t" ++ (bodyOf $ body log)

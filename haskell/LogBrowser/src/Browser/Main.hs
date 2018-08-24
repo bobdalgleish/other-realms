@@ -26,6 +26,11 @@ selectFilter "signpost" = rmsSignposts
 selectFilter "configfile" = testPredicate configFileHolder
 selectFilter _          = Success
 
+selectPrint :: String -> PrettyPrinter
+selectPrint "short" = PrettyPrinter showShortFields
+selectPrint "long" = PrettyPrinter show
+selectPrint _ = PrettyPrinter showFields
+
 getFilter :: LogContext -> String -> LogContext
 getFilter ctx filt = ctx { filters = selectFilter filt }
 
@@ -52,7 +57,7 @@ splitCommand s = let pieces = words s
                     (cmd:args)    -> (cmd, unwords args)
                     _             -> ("?", "?")
 
-commandLine :: LogContext -> IO LogContext
+commandLine :: LogContext -> IO ()
 commandLine ctx = do
                     putStr "Enter command: "
                     line <- getLine
@@ -62,11 +67,14 @@ commandLine ctx = do
                             fileCtx <- getFile $ ctx {file = arg}
                             commandLine fileCtx
                         "filter" -> do
-                            filterCtx <- getFilter ctx arg
-                            commandLine filterCtx
+                            commandLine $ getFilter ctx arg
+                        "print" -> do
+                            commandLine $ ctx {prettyPrinter = selectPrint arg}
                         "run" -> do
                             applyContext ctx
                             commandLine ctx
+                        "quit" -> do
+                            putStrLn "Goodby"
                         _ -> do
                             putStrLn "?"
                             commandLine ctx
