@@ -11,10 +11,7 @@ bodyContains (Body b) searches = any (\s -> isInfixOf s b) searches
 
 rmsSignposts :: Log String -> Bool
 rmsSignposts log = bodyContains (body log)           
-             ["RMS redundancy state change to RS_",
-              "Starting up with arguments:",
-              "Updating operational state from OS",
-              "Startup delay value is "]
+             
 
 main = do
   h <- openFile "/home/dalgleish/Downloads/orms.out" ReadMode

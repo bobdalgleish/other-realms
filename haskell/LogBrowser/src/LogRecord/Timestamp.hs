@@ -9,6 +9,9 @@ data Timestamp = Timestamp UTCTime
 showTimestamp :: Timestamp -> String
 showTimestamp (Timestamp t) = fmtTime millisecondsFmt t
 
+showShortTime :: Timestamp -> String
+showShortTime (Timestamp t) = fmtTime shortTimeFmt t
+
 instance Show Timestamp where show = showTimestamp
 
 -- |Convert a number to a year. Two digit years in the range 70 to 99 are in the 20th century
@@ -41,6 +44,7 @@ dayFromPieces _ = Nothing
 
 
 millisecondsFmt = "%Y-%m-%d_%H:%M:%S%3Q"
+shortTimeFmt = "%M:%S%3Q"
 
 fmtTime :: FormatTime t => String -> t -> String
 fmtTime f time = formatTime defaultTimeLocale f time
