@@ -12,6 +12,7 @@ spec = do
 
       it "returns 1999 when given 99" $
         fromYear 99 `shouldBe` 1999
+        fromYear 1999 `shouldBe` 1999
 
     describe "fromYear for values under 70" $ do
 

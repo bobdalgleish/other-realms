@@ -48,16 +48,29 @@ cabal-version:       >=1.10
 
 executable LogBrowser
   -- .hs or .lhs file containing the Main module.
-  main-is:             Main.hs
+  main-is:             Browser/Main.hs
 
   -- Modules included in this executable, other than Main.
-  -- other-modules:
+  other-modules:  Browser.Context
+                  Browser.LogFormatter
+                  Browser.Predicate
+                  Browser.Rms
+                  LogRecord.Log
+                  LogRecord.MatchRmsLog
+                  LogRecord.MatchRmsTimestamp
+                  LogRecord.MatchTimestamp
+                  LogRecord.Matchers
+                  LogRecord.Timestamp
 
   -- LANGUAGE extensions used by modules in this package.
   -- other-extensions:
 
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.11 && <4.12
+  build-depends:       base >=4.11 && <4.12,
+                       time >=1.8 && <2,
+                       array >=0.5.2 && <0.5.3,
+                       regex-base >=0.93 && <0.94,
+                       regex-pcre >=0.94.1 && <0.94.9
 
   -- Directories containing source files.
   hs-source-dirs:      src
