@@ -1,5 +1,6 @@
 module LogRecord.Log where
 import LogRecord.Timestamp
+import Data.List (isInfixOf)
 
 -- |Source of the log, such as server
 data Source = Source String deriving Show
@@ -65,8 +66,15 @@ newLog t src app thr s = Log { timestamp = t,
                    logLevel = LogInfo
                      }
 
+bodyHas, moduleIs :: String -> Log String -> Bool
+bodyHas s  = \log -> let (Body b) = body log
+                     in s `isInfixOf` b
+moduleIs s = \log -> let (ModuleName mn) = moduleName log
+                     in mn == s
+
+                     
 showFields :: Log String -> String
 showFields log = (show $ timestamp log) ++ "\t" ++ (bodyOf $ body log)
 
 showShortFields :: Log String -> String
-showShortFields log = (showShortTime $ timestamp log) ++ "\t" ++ (bodyOf $ body log)
+showShortFields log = (showShortTime $ timestamp log) ++ " " ++ (bodyOf $ body log)

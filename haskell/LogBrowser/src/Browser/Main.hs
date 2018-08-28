@@ -7,6 +7,7 @@ import LogRecord.Log
 import Browser.Context
 import Browser.Rms
 import Browser.Predicate
+import Browser.Contact
 
 readFileFromContext :: FilePath -> IO [Log String]
 readFileFromContext f = do
@@ -24,6 +25,8 @@ getFile ctx = do
 selectFilter :: String -> Predicate (Log String)
 selectFilter "signpost" = rmsSignposts
 selectFilter "configfile" = testPredicate configFileHolder
+selectFilter ('c':'o':'n':'t':'a':'c':'t':' ':contact) =
+                        forSatellite contact
 selectFilter _          = Success
 
 selectPrint :: String -> PrettyPrinter
