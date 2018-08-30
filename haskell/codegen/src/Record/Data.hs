@@ -94,14 +94,13 @@ indentN :: Int -> String
 indentN n = intercalate "" $ replicate n "    "
 
 dumpConstructor :: String -> [Field] -> [String]
-dumpConstructor cls flds =  [
-                              indent $ cls ++ "();"
-                            , ""
-                            , indent $ cls ++ "("
+dumpConstructor cls flds =  [ [i|    #{cls}();
+|]
+                            , [i|    #{cls}(|]
                             ] ++ 
                             dumpFormalParameters flds ++
                             [
-                              indent $ ");"
+                              [i|    );|]
                             ]
 
 boilerPlate1 :: String -> [String]
@@ -125,9 +124,6 @@ firstToUpper (f:r) = (if isLower f then toUpper f else f) : r
 
 dumpGetters :: [Field] -> [String]
 dumpGetters flds = map (\f -> indent $ "const " ++ fieldType f ++ "& get" ++ (firstToUpper $ fieldName f) ++ "() const;" ) flds
-
-dumpDestructor :: String -> [String]
-dumpDestructor cls = ["", indent $ "virtual ~" ++ cls ++ "();", ""]
 
 recordFamily = RecordFamily { recordFamilyName = "family",
                               sharedIncludes = ["string", "fstream"]
