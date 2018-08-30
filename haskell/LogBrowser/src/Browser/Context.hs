@@ -5,20 +5,20 @@ import System.IO
 import Browser.Predicate
 import Browser.LogFormatter
 
-type LogFilter = Predicate (Log String)
+type LogFilter a = Predicate (Log a)
 
-data PrettyPrinter = PrettyPrinter (Log String -> String)
+data PrettyPrinter a = PrettyPrinter (Log a -> String)
 
-printLog :: LogContext -> Log String -> String
+printLog :: LogContext a -> Log a -> String
 printLog ctx = \log -> let (PrettyPrinter f) = prettyPrinter ctx
                        in f log
 
-data LogContext = LogContext { file :: FilePath                      -- |name of the log file
-                             , logLines :: [Log String]              -- |contents of the log file
-                             , filters :: LogFilter                  -- |current filters
-                             , formatters :: [LogFormatter String]   -- |reformat the logs
-                             , prettyPrinter :: PrettyPrinter        -- |pretty print the result
-                             }
+data LogContext a = LogContext { file :: FilePath                 -- |name of the log file
+                               , logLines :: [Log a]              -- |contents of the log file
+                               , filters :: LogFilter a           -- |current filters
+                               , formatters :: [LogFormatter a]   -- |reformat the logs
+                               , prettyPrinter :: PrettyPrinter a -- |pretty print the result
+                               }
 
 -- |make a context, given a file name
 makeContext :: FilePath -> LogContext
