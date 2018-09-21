@@ -1,8 +1,9 @@
-module Record.Cls where
+#!/usr/bin/env stack
 
 import Record.Data
 import Record.Generate
 import System.IO
+
 
 family :: RecordFamily
 family = RecordFamily { recordFamilyName = "family"
@@ -23,5 +24,9 @@ record1 = Record { recordName = "CrashDataFileCtrl"
                  , includes = [
                               ]
                  }
-        writeFile (headerFileName record2) (unlines $ genHeader family record2)
-        writeFile (classFileName record2) (unlines $ genBody family record2)
+
+
+main = do
+        writeFile (headerFileName record1) (unlines $ genHeader family record1)
+        writeFile (classFileName record1) (unlines $ genBody family record1)
+            

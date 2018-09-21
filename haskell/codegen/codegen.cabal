@@ -72,13 +72,15 @@ executable codegen
   main-is:             Main.hs
 
   -- Modules included in this executable, other than Main.
-  other-modules:       Record.Data
+  other-modules:       Record.Data,
+                       Record.Generate
 
   -- LANGUAGE extensions used by modules in this package.
-  -- other-extensions:
+  other-extensions:    QuasiQuotes
 
   -- Other library packages from which modules are imported.
-  build-depends:       base >=4.11 && <4.12
+  build-depends:       base >=4.11 && <4.12,
+                       interpolate >=0.2.0 && <0.2.9
 
   -- Directories containing source files.
   hs-source-dirs:      src
