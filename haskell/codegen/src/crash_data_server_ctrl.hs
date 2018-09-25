@@ -11,6 +11,7 @@ family = RecordFamily { recordFamilyName = "family"
                             "docsis/common/tlv/def/tlv_complex.h"
                           , "gcp/message/rcp/def/rcp_field_types.h"
                           ]
+                      , baseTlvName = "RpdCtrl"
                       }
 
 record2 = Record {
@@ -30,3 +31,4 @@ record2 = Record {
 main = do
         writeFile (headerFileName record2) (unlines $ genHeader family record2)
         writeFile (classFileName record2) (unlines $ genBody family record2)
+        writeFile (testFileName record2) (unlines $ genTest family record2)

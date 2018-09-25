@@ -32,6 +32,7 @@ data Record = Record { recordName :: String
 
 data RecordFamily = RecordFamily { recordFamilyName :: String
                                  , sharedIncludes :: [String]
+                                 , baseTlvName :: String
                                  }
                                  deriving Show               
 
