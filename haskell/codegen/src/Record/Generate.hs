@@ -6,50 +6,54 @@ import Data.List
 import Data.Char
 import Data.String.Interpolate
 
-testString = [i|This is a test string|]
+import System.IO
 
-generateCode :: RecordFamily -> [Record] -> String
-generateCode family records = show $ map (\r -> unlines $ genHeader family r) records
-                              
-genHeader :: RecordFamily -> Record -> [String]
-genHeader family record = let base = baseFileName $ recordName record
-                in
-                    fileHeader
-                    ++ dupPreventer ((tail $ namespace record) ++ (fileNameFragments $ recordName record) ++ ["h"])
-                    ++ (dumpIncludes $ sharedIncludes family)
-                    ++ [""]
-                    ++ (doNameSpace (namespace record) (
-                        ["", "class " ++ recordName record ++ ": public docsis::common::tlv::def::TlvComplex"]
-                        ++ ["{", "public:"]
-                        ++ (dumpConstructor record)
-                        ++ (boilerPlate1 (recordName record))
-                        ++ (dumpGetters record (fields record))
-                        ++ [(boilerPlate2 (recordName record))]
-                        ++ ["", "private:"]
-                        ++ (map (declareField record) $ fields record)
-                        ++ ["};"]
-                    ))
-                    ++ ["#endif"]
-
-genBody :: RecordFamily -> Record -> [String]
-genBody family record =
-    let includeFile = headerFileName record
+codegen :: DataRecord -> IO ()
+codegen dr = do
+    writeFile (headerFileName dr) (unlines $ genHeader dr)
+    writeFile (classFileName dr) (unlines $ genBody dr)
+    writeFile (testFileName dr) (unlines $ genTest dr)
+           
+genHeader :: DataRecord -> [String]
+genHeader dr = 
+    let base = baseFileName dr
     in
         fileHeader
-        ++ [incl $ intercalate "/" (srcPath record ++ [includeFile])]
+        ++ dupPreventer (getSrcPath dr ++ [base] ++ ["h"])
+        ++ (dumpIncludes $ includes dr)
         ++ [""]
-        ++ (doNameSpace (namespace record) 
-            ( (dumpRealConstructor record) ++
-              dumpGetTlvType record ++
-              dumpGetterImps record (fields record) ++
-              dumpGetNumOptionalTlvs record ++
-              dumpGetOptionalTlv record ++
-              constructFromBuffer record
+        ++ (doNameSpace (getNamespace dr) (
+            ["", "class " ++ className dr ++ ": public docsis::common::tlv::def::TlvComplex"]
+            ++ ["{", "public:"]
+            ++ (dumpConstructor dr)
+            ++ (boilerPlate1 (className dr))
+            ++ (dumpGetters dr)
+            ++ [(boilerPlate2 (className dr))]
+            ++ ["", "private:"]
+            ++ (map declareField $ getFields dr)
+            ++ ["};"]
+        ))
+        ++ ["#endif"]
+
+genBody :: DataRecord -> [String]
+genBody dr =
+    let includeFile = headerFileName dr
+    in
+        fileHeader
+        ++ [incl $ intercalate "/" (getSrcPath dr ++ [includeFile])]
+        ++ [""]
+        ++ (doNameSpace (getNamespace dr) 
+            ( (dumpRealConstructor dr) ++
+              dumpGetTlvType dr ++
+              dumpGetterImps (getFields dr) ++
+              dumpGetNumOptionalTlvs dr ++
+              dumpGetOptionalTlv dr ++
+              constructFromBuffer dr
             )
             )
         
-genTest :: RecordFamily -> Record -> [String]
-genTest family record =
+genTest :: DataRecord -> [String]
+genTest dr =
         fileHeader
         ++ [""]
         ++ (dumpIncludes [
@@ -69,32 +73,8 @@ genTest family record =
            , useNameSpace ["testing"]
            ]
         ++ doNameSpace ["MockUsscMessage"] (
-            defineTestClass record
+            defineTestClass dr
         )
-
-baseFileName :: String -> String
-baseFileName cls = map toLower $ intercalate "_" (fileNameFragments cls)
-
-headerFileName :: Record -> String
-headerFileName r = baseFileName $ recordName r ++ ".h"
-
-classFileName :: Record -> String
-classFileName r = baseFileName $ recordName r ++ ".cpp"
-
-testFileName :: Record -> String
-testFileName r = baseFileName $ recordName r ++ "_test.cpp"
-
-srcPath :: Record -> [String]
-srcPath r = (tail $ namespace r)
-
-fileNameFragments :: String -> [String]
-fileNameFragments [] = []
-fileNameFragments s = let (pre, post) = break isUpper s
-                 in case pre of
-                    [] -> let r = tail post
-                              (rf, rb) = break isUpper r
-                          in (head post:rf) : fileNameFragments rb
-                    word -> word : fileNameFragments post
 
 firstToUpper :: String -> String
 firstToUpper (f:r) = (if isLower f then toUpper f else f) : r
@@ -139,8 +119,8 @@ useNameSpace n =
     let ns = intercalate "::" n
     in  [i|using namespace #{concat n};|]
 
-declareField :: Record -> Field -> String
-declareField r fld = [i|    boost::optional<#{showField r (fieldType fld)}> _#{fieldName fld};|]
+declareField :: DataField -> String
+declareField fld = [i|    boost::optional<#{showF fld}> _#{getFieldName fld};|]
 
 indentN :: Int -> String
 indentN n = concat $ replicate n "    "
@@ -148,46 +128,46 @@ indentN n = concat $ replicate n "    "
 indentLines :: Int -> [String] -> [String]
 indentLines n l = map (indentN n ++) l
 
-defineTestClass :: Record -> [String]
-defineTestClass r =
+defineTestClass :: DataRecord -> [String]
+defineTestClass dr =
     [
-      [i|class #{recordName r}Test: public Testing|]
+      [i|class #{className dr}Test: public Testing|]
     , "{"
     , "};"
     ]
 
-dumpConstructor :: Record -> [String]
-dumpConstructor r =  [ [i|    #{recordName r}();|]
+dumpConstructor :: DataRecord -> [String]
+dumpConstructor dr =  [ [i|    #{className dr}();|]
                      , ""
-                     , [i|    #{recordName r}(|]
+                     , [i|    #{className dr}(|]
                      ] ++ 
-                     (indentLines 2 $ dumpFormalParameters r) ++
+                     (indentLines 2 $ dumpFormalParameters dr) ++
                      [
                        [i|    );|]
                      ]
-dumpRealConstructor :: Record -> [String]
-dumpRealConstructor r =
+dumpRealConstructor :: DataRecord -> [String]
+dumpRealConstructor dr =
     [
-        [i|#{recordName r}::#{recordName r}()|]
+        [i|#{className dr}::#{className dr}()|]
         , "{"
         , "}"
         , ""
-        , [i|#{recordName r}::~#{recordName r}()|]
+        , [i|#{className dr}::~#{className dr}()|]
         , "{"
         , "}"
         , ""
-        , [i|#{recordName r}::#{recordName r}(|]
+        , [i|#{className dr}::#{className dr}(|]
     ] ++
-    indentLines 1 (dumpFormalParameters r) ++
+    indentLines 1 (dumpFormalParameters dr) ++
     ["    )", "    : TlvComplex( getTlvType() )"] ++
-    (braces (map (\field -> [i|buildOptional( #{showTlvField r $ fieldType field}, #{fieldName field}, _#{fieldName field} );|]) (fields r) ++
+    (braces (map (\field -> [i|buildOptional( #{showTlv field}, #{getFieldName field}, _#{getFieldName field} );|]) (getFields dr) ++
         [ "updateValueLength();"]) )
 
-constructFromBuffer :: Record -> [String]
-constructFromBuffer r = [
+constructFromBuffer :: DataRecord -> [String]
+constructFromBuffer dr = [
     "",
     "/** Construct from a buffer with any length */",
-    [i|#{recordName r}::#{recordName r}(|],
+    [i|#{className dr}::#{className dr}(|],
     "    const uint8_t* buff,",
     "    std::size_t availLength,",
     "    std::size_t& used )",
@@ -197,7 +177,7 @@ constructFromBuffer r = [
         "if (getType() != getTlvType())",
         "{",
         "    throw ParseException(",
-        [i|        "Unexpected message type given to #{recordName r}" );|],
+        [i|        "Unexpected message type given to #{className dr}" );|],
         "}",
         "uint16_t availLen = getLength();",
         "used = getBaseLength();",
@@ -205,20 +185,14 @@ constructFromBuffer r = [
         ] ++
         braces (
             [ "std::size_t dataUsed = 0;"
-            , [i|#{baseTlv r} tlv_t = static_cast<#{baseTlv r}>( *(buff + used) );|]
-            , [i|bool known = true;|]
+            , [i|#{tlvName dr} tlv_t = static_cast<#{tlvName dr}>( *(buff + used) );|]
             ] ++
-            (doSwitch "tlv_t" (map genCase $ fields r)
+            (doSwitch "tlv_t" (map genCase $ getFields dr)
                     [
                         "discardUnknown( buff + used, availLen, dataUsed );"
-                      , "known = false;"
                       , "break;"
                     ] ) ++
-            [ "if (known)"
-            , "{"
-            , "    foundTlv( tlv_t );"
-            , "}"
-            , "used += dataUsed;"
+            [ "used += dataUsed;"
             , "availLen -= dataUsed;"
             ]
             ) ++
@@ -226,15 +200,15 @@ constructFromBuffer r = [
             "if (availLen != 0)"
           , "{"
           , "    throw ParseException("
-          , [i|       "Unused/overused length inside #{baseTlv r}" );|]
+          , [i|       "Unused/overused length inside #{tlvName dr}" );|]
           , "}"
           , "updateValueLength();"
         ]
     )
     where
-        genCase :: Field -> (String, [String])
-        genCase f = (showTlvField r $ fieldType f,
-                     [     [i|_#{fieldName f} = #{showField r (fieldType f)}( buff + used, availLen, dataUsed );|]
+        genCase :: DataField -> (String, [String])
+        genCase f = (showTlv f,
+                     [     [i|_#{getFieldName f} = #{showF f}( buff + used, availLen, dataUsed );|]
                          , "break;"
                      ]
                     )
@@ -266,49 +240,56 @@ protected:
     boost::optional<const TlvBase_t<uint16_t>&> getOptionalTlv(
         std::size_t index ) const override;|]
 
-dumpFormalParameters :: Record -> [String]
-dumpFormalParameters r = let fieldUse = map (\f -> [i|#{optOf $ showValField r $ fieldType f} #{fieldName f}|]) (fields r)
-                             l = length fieldUse
-                         in (map (++ ",") (init fieldUse)) ++ (drop (l-1) fieldUse)
+dumpFormalParameters :: DataRecord -> [String]
+dumpFormalParameters dr = let fieldUse = map (\f -> formalParameter f) (getFields dr)
+                              l = length fieldUse
+                          in (map (++ ",") (init fieldUse)) ++ (drop (l-1) fieldUse)
 
-dumpGetters :: Record -> [Field] -> [String]
-dumpGetters r flds = map (\f -> [i|    const #{optOf $ showField r $ fieldType f}& get#{firstToUpper $ fieldName f}() const;|] ) flds
+formalParameter :: DataField -> String
+formalParameter df =
+    [i|#{optOf $ showValType df} #{getFieldName df}|]
 
-dumpGetterImps :: Record -> [Field] -> [String]
-dumpGetterImps _ [] = []
-dumpGetterImps r (f: fs) = [
+dumpGetters :: DataRecord -> [String]
+dumpGetters dr = map (\f -> [i|    const #{optOf $ showF f}& get#{firstToUpper $ getFieldName f}() const;|] ) (getFields dr)
+
+dumpGetterImps :: [DataField] -> [String]
+dumpGetterImps [] = []
+dumpGetterImps (f: fs) = [
                            ""
-                         , [i|const #{optOf $ showField r $ fieldType f}& #{recordName r}::get#{firstToUpper $ fieldName f}() const|]
+                         , [i|const #{optOf $ showF f}& #{className f}::get#{firstToUpper $ getFieldName f}() const|]
                          ] ++
-                         braces [[i|return _#{fieldName f};|]] ++
-                         dumpGetterImps r fs
+                         braces [[i|return _#{getFieldName f};|]] ++
+                         dumpGetterImps fs
                         
-dumpGetTlvType :: Record -> [String]
+dumpGetTlvType :: DataRecord -> [String]
 dumpGetTlvType r =
     [
       ""
-    , [i|uint8_t #{recordName r}::getTlvType()|]
+    , [i|uint8_t #{className r}::getTlvType()|]
     ] ++
-    braces [[i|return static_cast<uint8_t>( BaseRpdInfoTLV_t::#{upperSnakeCase $ recordName r};|]]
+    braces [[i|return static_cast<uint8_t>( #{getTlvBaseRecord r}::#{upperSnakeCase $ className r};|]]
 
-dumpGetNumOptionalTlvs :: Record -> [String]
-dumpGetNumOptionalTlvs r = [
+dumpGetNumOptionalTlvs :: DataRecord -> [String]
+dumpGetNumOptionalTlvs dr = [
                              ""
-                           , [i|std::size_t #{recordName r}::getNumOptionalTlvs() const|]
+                           , [i|std::size_t #{className dr}::getNumOptionalTlvs() const|]
                            ] ++
-                           braces [[i|return #{length $ fields r};|]]
+                           braces [[i|return #{length $ getFields dr};|]]
 
-dumpGetOptionalTlv :: Record -> [String]
-dumpGetOptionalTlv r =
+dumpGetOptionalTlv :: DataRecord -> [String]
+dumpGetOptionalTlv dr =
     [ ""
-    , [i|#{optOf "const TlvBase_t<uint16_t>&"} #{recordName r}::getOptionalTlv( std::size_t index ) const|]
+    , [i|#{optOf "const TlvBase_t<uint16_t>&"} #{className dr}::getOptionalTlv( std::size_t index ) const|]
     ] ++
     braces (
-            doSwitch "index" (map genCase $ fields r) [[i|    throw std::range_error( "Index out of range for #{baseTlv r}" );|]]
+            doSwitch 
+                "index" 
+                (map genCaseN $ (getFields dr) `zip` [0..])
+                [[i|    throw std::range_error( "Index out of range for #{tlvName dr}" );|]]
         )
     where
-        genCase :: Field -> (String, [String])
-        genCase f = (showTlvField r $ fieldType f, [[i|return getOptBase16( _#{fieldName f} );|]])
+        genCaseN :: (DataField, Int) -> (String, [String])
+        genCaseN (f, n) = (show n, [[i|return getOptBase16( _#{getFieldName f} );|]])
 
 doSwitch :: String -> [(String, [String])] -> [String] -> [String]
 doSwitch key cases dflt =

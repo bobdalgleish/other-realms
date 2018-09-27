@@ -4,7 +4,6 @@ import Record.Data
 import Record.Generate
 import System.IO
 
-
 family :: RecordFamily
 family = RecordFamily { recordFamilyName = "family"
                       , sharedIncludes = [
@@ -12,6 +11,7 @@ family = RecordFamily { recordFamilyName = "family"
                           , "gcp/message/rcp/def/rcp_field_types.h"
                           ]
                       , baseTlvName = "RpdCtrl"
+                      , usingNamespaces = []
                       }
 
 record2 = Record {
@@ -25,10 +25,8 @@ record2 = Record {
                                 (TlvType "Protocol" "PROTOCOL" "40.4.3")
                             ]
                  , namespace = ["sedsystems", "gcp", "message", "rcp", "def"]
-                 , includes = []
+                 , classIncludes = []
                  }
 
 main = do
-        writeFile (headerFileName record2) (unlines $ genHeader family record2)
-        writeFile (classFileName record2) (unlines $ genBody family record2)
-        writeFile (testFileName record2) (unlines $ genTest family record2)
+        codegen $ recordOf family record2

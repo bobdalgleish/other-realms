@@ -12,6 +12,7 @@ family = RecordFamily { recordFamilyName = "family"
                           , "gcp/message/rcp/def/rcp_field_types.h"
                           ]
                       , baseTlvName = "RpdCtrl"
+                      , usingNamespaces = []
                       }
        
 record1 = Record { recordName = "CrashDataFileCtrl"
@@ -22,13 +23,11 @@ record1 = Record { recordName = "CrashDataFileCtrl"
                                 (TlvType "FileControl" "FILE_CONTROL" "40.3.2")
                             ]
                  , namespace = ["sedsystems", "gcp", "message", "rcp", "def"]
-                 , includes = [
+                 , classIncludes = [
                               ]
                  }
 
 
 main = do
-        writeFile (headerFileName record1) (unlines $ genHeader family record1)
-        writeFile (classFileName record1) (unlines $ genBody family record1)
-        writeFile (testFileName record1) (unlines $ genTest family record1)
+        codegen $ recordOf family record1
             
