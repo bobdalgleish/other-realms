@@ -37,8 +37,11 @@ data Record = Record {
 
 class ClassDescription a where
   className :: a -> String
-  tlvName :: a -> String
-  includes :: a -> [IncludePath]
+  tlvName   :: a -> String
+  includes  :: a -> [IncludePath]
+  constructorName :: a -> String
+  destructorName  :: a -> String
+  methodName      :: a -> String -> String
 
 -- |Break a class name using camelCase into individual words
 fileNameFragments :: String -> [String]
@@ -70,6 +73,9 @@ instance ClassDescription DataRecord where
   className dr = recordName $ dataRecord dr
   tlvName dr   = [i|#{className dr}TLV_t|]
   includes dr  = (sharedIncludes $ dataRecordFamily dr) ++ (classIncludes $ dataRecord dr)
+  constructorName dr = [i|#{className dr}::#{className dr}|]
+  destructorName  dr = [i|#{className dr}::~#{className dr}|]
+  methodName    dr m = [i|#{className dr}::#{m}|]
 
 getTlvBaseRecord, baseFileName, headerFileName, classFileName, testFileName :: DataRecord -> String
 getTlvBaseRecord dr = (baseTlvName $ dataRecordFamily dr) ++ "TLV_t"
@@ -95,25 +101,33 @@ instance ClassDescription DataField where
   className df = recordName $ dataFieldRecord df
   tlvName   df = [i|#{className df}TLV_t|]
   includes  df = (sharedIncludes $ dataFieldFamily df) ++ (classIncludes $ dataFieldRecord df)
+  constructorName df = [i|#{className df}::#{className df}|]
+  destructorName  df = [i|#{className df}::~#{className df}|]
+  methodName    df m = [i|#{className df}::#{m}|]
 
+-- | C/C++ type
+type CType = String
+
+class FieldDescription a where
+  refName     :: a -> String
+  privateName :: a -> String
+  typeOf      :: a -> TlvType
+  typeType    :: a -> CType
+  baseType    :: a -> CType
+  tlvEnumT    :: a -> CType
+  typeVal     :: a -> CType
+
+instance FieldDescription DataField where
+  refName     df = fieldName $ field df
+  privateName df = "_" ++ refName df
+  typeOf      df = fieldType $ field df
+  typeType    df = [i|#{className df}#{index $ typeOf df}Type|]
+  baseType    df = [i|#{className df}TLV_t|]
+  tlvEnumT    df = [i|#{baseType df}::#{tlvEnum $ typeOf df}|]
+  typeVal     df = [i|#{typeType df}::VALUE_TYPE|]
 
 fieldOf :: DataRecord -> Field -> DataField
 fieldOf dr f = DataField (dataRecordFamily dr) (dataRecord dr) f
 
 getFields :: DataRecord -> [DataField]
 getFields dr = map (\f -> fieldOf dr f) $ fields $ dataRecord dr
-
-getClassOf :: DataField -> String
-getClassOf df = recordName $ dataFieldRecord df
-
-showF, showBaseTlv, showTlv, showValType :: DataField -> String
-showF df       = [i|#{recordName $ dataFieldRecord df}#{index $ getFieldType df}Type|]
-showBaseTlv df = [i|#{recordName $ dataFieldRecord df}TLV_t|]
-showTlv df     = [i|#{showBaseTlv df}::#{tlvEnum $ getFieldType df}|]
-showValType df = [i|#{showF df}::VALUE_TYPE|]
-
-getFieldName :: DataField -> String
-getFieldName df = fieldName $ field df
-
-getFieldType :: DataField -> TlvType
-getFieldType df = fieldType $ field df

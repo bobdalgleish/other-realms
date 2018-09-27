@@ -120,13 +120,15 @@ useNameSpace n =
     in  [i|using namespace #{concat n};|]
 
 declareField :: DataField -> String
-declareField fld = [i|    boost::optional<#{showF fld}> _#{getFieldName fld};|]
+declareField fld = [i|    boost::optional<#{typeType fld}> _#{getFieldName fld};|]
 
 indentN :: Int -> String
 indentN n = concat $ replicate n "    "
 
 indentLines :: Int -> [String] -> [String]
-indentLines n l = map (indentN n ++) l
+indentLines n l = 
+    let indN = indentN n
+    in map (\line -> if length line > 0 then indN ++ line else line) l
 
 defineTestClass :: DataRecord -> [String]
 defineTestClass dr =
@@ -148,26 +150,26 @@ dumpConstructor dr =  [ [i|    #{className dr}();|]
 dumpRealConstructor :: DataRecord -> [String]
 dumpRealConstructor dr =
     [
-        [i|#{className dr}::#{className dr}()|]
+        [i|#{constructorName dr}()|]
         , "{"
         , "}"
         , ""
-        , [i|#{className dr}::~#{className dr}()|]
+        , [i|#{destructorName dr}()|]
         , "{"
         , "}"
         , ""
-        , [i|#{className dr}::#{className dr}(|]
+        , [i|#{constructorName dr}(|]
     ] ++
     indentLines 1 (dumpFormalParameters dr) ++
     ["    )", "    : TlvComplex( getTlvType() )"] ++
-    (braces (map (\field -> [i|buildOptional( #{showTlv field}, #{getFieldName field}, _#{getFieldName field} );|]) (getFields dr) ++
+    (braces (map (\field -> [i|buildOptional( #{tlvEnumT field}, #{getFieldName field}, _#{getFieldName field} );|]) (getFields dr) ++
         [ "updateValueLength();"]) )
 
 constructFromBuffer :: DataRecord -> [String]
 constructFromBuffer dr = [
     "",
     "/** Construct from a buffer with any length */",
-    [i|#{className dr}::#{className dr}(|],
+    [i|#{constructorName dr}(|],
     "    const uint8_t* buff,",
     "    std::size_t availLength,",
     "    std::size_t& used )",
@@ -207,8 +209,8 @@ constructFromBuffer dr = [
     )
     where
         genCase :: DataField -> (String, [String])
-        genCase f = (showTlv f,
-                     [     [i|_#{getFieldName f} = #{showF f}( buff + used, availLen, dataUsed );|]
+        genCase f = (tlvEnumT f,
+                     [     [i|_#{getFieldName f} = #{typeType f}( buff + used, availLen, dataUsed );|]
                          , "break;"
                      ]
                     )
@@ -247,16 +249,16 @@ dumpFormalParameters dr = let fieldUse = map (\f -> formalParameter f) (getField
 
 formalParameter :: DataField -> String
 formalParameter df =
-    [i|#{optOf $ showValType df} #{getFieldName df}|]
+    [i|#{optOf $ typeVal df} #{getFieldName df}|]
 
 dumpGetters :: DataRecord -> [String]
-dumpGetters dr = map (\f -> [i|    const #{optOf $ showF f}& get#{firstToUpper $ getFieldName f}() const;|] ) (getFields dr)
+dumpGetters dr = map (\f -> [i|    const #{optOf $ typeType f}& get#{firstToUpper $ getFieldName f}() const;|] ) (getFields dr)
 
 dumpGetterImps :: [DataField] -> [String]
 dumpGetterImps [] = []
 dumpGetterImps (f: fs) = [
                            ""
-                         , [i|const #{optOf $ showF f}& #{className f}::get#{firstToUpper $ getFieldName f}() const|]
+                         , [i|const #{optOf $ typeType f}& #{methodName f ("get" ++ (firstToUpper $ refName f))}() const|]
                          ] ++
                          braces [[i|return _#{getFieldName f};|]] ++
                          dumpGetterImps fs
@@ -265,21 +267,21 @@ dumpGetTlvType :: DataRecord -> [String]
 dumpGetTlvType r =
     [
       ""
-    , [i|uint8_t #{className r}::getTlvType()|]
+    , [i|uint8_t #{methodName r "getTlvType"}()|]
     ] ++
     braces [[i|return static_cast<uint8_t>( #{getTlvBaseRecord r}::#{upperSnakeCase $ className r};|]]
 
 dumpGetNumOptionalTlvs :: DataRecord -> [String]
 dumpGetNumOptionalTlvs dr = [
                              ""
-                           , [i|std::size_t #{className dr}::getNumOptionalTlvs() const|]
+                           , [i|std::size_t #{methodName dr "getNumOptionalTlvs"}() const|]
                            ] ++
                            braces [[i|return #{length $ getFields dr};|]]
 
 dumpGetOptionalTlv :: DataRecord -> [String]
 dumpGetOptionalTlv dr =
     [ ""
-    , [i|#{optOf "const TlvBase_t<uint16_t>&"} #{className dr}::getOptionalTlv( std::size_t index ) const|]
+    , [i|#{optOf "const TlvBase_t<uint16_t>&"} #{methodName dr "getOptionalTlv"}( std::size_t index ) const|]
     ] ++
     braces (
             doSwitch 
