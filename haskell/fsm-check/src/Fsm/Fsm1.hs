@@ -101,7 +101,7 @@ testStartStates =
 -- |Starting from this test, find a chain of tests that are not in the done list
 groupFromHead :: Test -> [Test] -> [Test]
 groupFromHead t done =
-    let vetted = [tc | tc <- commonStartToEnd t testStartStates, not (tc `elem` done)]
+    let vetted = filterOld (commonStartToEnd t testStartStates) done
     in case vetted of
         [] -> []
         (ht:_) -> ht: groupFromHead ht (ht:done)
@@ -111,22 +111,26 @@ commonStartToEnd t m = case lookup (endingState t) m of
                         Just listOfTests -> listOfTests
                         Nothing -> []
 
+filterOld :: [Test] -> [Test] -> [Test]
+filterOld candidates done =
+    [c | c <- candidates, not (c `elem` done)]
+
 -- |Generate all sequences of tests
 generateAllTestSequences :: [Test] -> [Test] -> [[Test]]
 generateAllTestSequences [] _ = []
 generateAllTestSequences (t:ts) done =
-    let seq = t: groupFromHead t [t]
+    let seq = t: groupFromHead t (t: done)
         newDone = done ++ seq
-    in seq: generateAllTestSequences [c | c <- ts, not (c `elem` newDone)] newDone
+    in seq: generateAllTestSequences (filterOld ts newDone) newDone
 
-generateCode :: [Test] -> [String]
-generateCode tests =
+generateCode :: Int -> [Test] -> [String]
+generateCode n tests =
     let (t1:_) = tests
         st = startingState t1
     in
         ["",
-        "public void test" ++ (show st) ++ "() throws Exception {",
-        "    ensureInitialState" ++ (show $ startingState t1) ++ "();"] ++
+        "public void testBulkStateTransitions" ++ show n ++ "() throws Exception {",
+        "    ensureInitialState" ++ (show st) ++ "();"] ++
         concat (map generateTest tests) ++
         ["}"]
 
@@ -139,8 +143,11 @@ generateTest t =
     ]
 
 generateCodes :: [[Test]] -> [String]
-generateCodes [] = []
-generateCodes (t:ts) = generateCode t ++ generateCodes ts
+generateCodes t = generateTestProcedures (t `zip` [1..])
+    where
+        generateTestProcedures :: [([Test], Int)] -> [String]
+        generateTestProcedures [] = []
+        generateTestProcedures ((t, n):ts) = generateCode n t ++ generateTestProcedures ts
 
 generate :: [String]
 generate =
