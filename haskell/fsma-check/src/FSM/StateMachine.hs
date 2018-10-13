@@ -2,6 +2,10 @@ module FSM.StateMachine where
 
 import Data.List
 
+class FsmAction a where
+    isEmpty :: a -> Bool
+    isError :: a -> Bool
+
 data StateMachine s e a =
     StateMachine { 
                    states :: [s]                    -- ^states that the machine can be in

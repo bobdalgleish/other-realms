@@ -20,6 +20,13 @@ data Tr = Timeout
         deriving (Eq, Ord, Show)
 
 data RedAction = Action0
+                 deriving (Eq)
+
+showAction :: RedAction -> String
+showAction Action0 = ""
+
+instance Show RedAction where
+    show = showAction
 
 redundancyTransitions = [
       ((Discovery, Timeout),          (Action0, ActiveAlone))
@@ -47,3 +54,6 @@ redundancyFsm = StateMachine {
                              , initialStates = [Discovery]
                              , transitions = redundancyTransitions
                              }
+
+nextFsm :: FSM -> Tr -> Maybe (RedAction, FSM)
+nextFsm = nextOperation redundancyFsm
