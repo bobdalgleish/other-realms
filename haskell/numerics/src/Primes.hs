@@ -11,6 +11,7 @@ to include in the result.
 -}
 
 import Data.List.Ordered (minus, union)
+import Data.Array.Unboxed
 
 wheel = 2:4:2:4:6:2:6:4:2:4:6:6:2:6:4:2:6:4:6:8:4:2:4:2:
         4:8:6:4:6:2:4:6:2:6:6:4:2:4:6:2:6:4:2:4:2:10:2:10:wheel
@@ -32,6 +33,19 @@ joinT ((x:xs):t) = x : union xs (joinT (pairs t))
 
 primesTMWE :: [Int]
 primesTMWE = [2,3,5,7] ++ _Y ((11:) . tail .gapsW 11 wheel . joinT . hitsW 11 wheel)
+
+primesSA :: [Int]
+primesSA = 2 : oddprimes ()
+    where
+        oddprimes = (3 :) . sieve 3 [] .oddprimes
+        sieve x fs (p:ps) = [i*2 + x | (i,True) <- assocs a]
+                            ++ sieve (p*p) ((p,0) :
+                                [(s, rem (y-q) s) | (s,y) <- fs]) ps
+            where
+                q = (p*p-x) `div` 2
+                a :: UArray Int Bool
+                a = accumArray (\ b c -> False) True (1,q-1)
+                               [(i,()) | (s,y) <- fs, i <- [y+s,y+s+s..q]]
 
 -- |Find the sum of primes less than 'n'.
 --  For larger 'n', the sum should be 'Integer' instead of 'Int'
