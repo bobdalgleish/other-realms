@@ -1,7 +1,7 @@
 module FSM.RedundancyFsm where
 
 import FSM.StateMachine
-
+import FSM.TestFsm
 
 data FSM = 
            Discovery
