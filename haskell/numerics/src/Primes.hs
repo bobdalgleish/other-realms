@@ -1,4 +1,6 @@
-module Primes where
+module Primes (
+    primesTMWE, primesSA
+) where
 
 {-
 These functions were taken from:
@@ -31,9 +33,11 @@ joinT :: Ord a => [[a]] -> [a]
 joinT ((x:xs):t) = x : union xs (joinT (pairs t))
     where pairs (xs:ys:t) = union xs ys : pairs t
 
+-- |"High-performance" prime number finder, using lists
 primesTMWE :: [Int]
 primesTMWE = [2,3,5,7] ++ _Y ((11:) . tail .gapsW 11 wheel . joinT . hitsW 11 wheel)
 
+-- |"High-performance" prime number finder, using backing array
 primesSA :: [Int]
 primesSA = 2 : oddprimes ()
     where
@@ -46,8 +50,3 @@ primesSA = 2 : oddprimes ()
                 a :: UArray Int Bool
                 a = accumArray (\ b c -> False) True (1,q-1)
                                [(i,()) | (s,y) <- fs, i <- [y+s,y+s+s..q]]
-
--- |Find the sum of primes less than 'n'.
---  For larger 'n', the sum should be 'Integer' instead of 'Int'
-solution :: Int -> Integer
-solution n = sum $ map (toInteger) $ takeWhile (<n) primesTMWE
