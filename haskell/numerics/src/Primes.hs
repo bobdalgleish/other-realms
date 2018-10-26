@@ -41,7 +41,7 @@ primesTMWE = [2,3,5,7] ++ _Y ((11:) . tail .gapsW 11 wheel . joinT . hitsW 11 wh
 primesSA :: [Int]
 primesSA = 2 : oddprimes ()
     where
-        oddprimes = (3 :) . sieve 3 [] .oddprimes
+        oddprimes = (3 :) . sieve 3 [] . oddprimes
         sieve x fs (p:ps) = [i*2 + x | (i,True) <- assocs a]
                             ++ sieve (p*p) ((p,0) :
                                 [(s, rem (y-q) s) | (s,y) <- fs]) ps
