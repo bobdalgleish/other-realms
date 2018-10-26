@@ -57,3 +57,5 @@ redundancyFsm = StateMachine {
 
 nextFsm :: FSM -> Tr -> Maybe (RedAction, FSM)
 nextFsm = nextOperation redundancyFsm
+
+redundancyTests = computeTestSuite redundancyFsm

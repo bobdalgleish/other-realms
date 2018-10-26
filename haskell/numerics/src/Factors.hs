@@ -1,4 +1,8 @@
-module Factors where
+module Factors (
+    primesBelow,
+    primeFactors,
+    allFactors
+) where
 
 import Primes (primesSA)
 import Data.List.Ordered (union)
