@@ -8,7 +8,6 @@ class (Ord e, Show e) => FsmEvent e
 
 class (Eq a, Show a) => FsmAction a where
     isEmpty :: a -> Bool
-    isError :: a -> Bool
 
 data StateMachine s e a =
     StateMachine { 
@@ -19,10 +18,6 @@ data StateMachine s e a =
                  , transitions :: [((s,e),(a,s))]   -- ^state transitions
                  }
 
-{-         
-operate :: (Eq s, Eq e) => (s, StateMachine s e a) -> e -> Maybe (a,s)
-operate sm ev 
- -}
 -- |Find the next state from this state for an event, or stay in this state
 nextState :: (Ord s, Ord e, Eq a) => StateMachine s e a -> s -> e -> s
 nextState sm st ev = case nextTransition sm st ev of
