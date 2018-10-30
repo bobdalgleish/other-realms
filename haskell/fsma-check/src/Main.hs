@@ -1,7 +1,7 @@
 import FSM.RedundancyFsm
 import FSM.SMS
 import FSM.FsmTF
-import FSM.SMS
+-- import FSM.SMS
 
 main = do
-    putStrLn $ show findDaisyChains
+    putStrLn "Here be fun"
