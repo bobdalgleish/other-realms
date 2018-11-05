@@ -1,24 +1,28 @@
+{-# language GADTs #-}
+{-# language AllowAmbiguousTypes #-}
+{-# language MultiParamTypeClasses #-}
 module FSM.TestFsm where
 
-import FSM.StateMachine
+import FSM.SMS
 
-data TestFsm s e a = 
-    TestFsm {
+data TestFsm s e a where
+    TestFsm :: (SMstate s, SMevent e, SMaction a) =>
+            {
               test'startState :: s
             , test'event :: e
             , test'endState :: s
             , test'action :: a
-            }
+            } -> TestFsm s e a
 
 instance (Eq s, Eq e, Eq a) => Eq (TestFsm s e a) where
     s1 == s2 = (test'startState s1) == (test'startState s2) &&
                (test'event s1) == (test'event s2) &&
                (test'endState s1) == (test'endState s2)
 
-computeTestSuite :: StateMachine s e a -> [TestFsm s e a]
-computeTestSuite sm = map getSuite $ transitions sm
+computeTestSuite :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> [TestFsm s e a]
+computeTestSuite sm = map getSuite $ tms'transitions sm
     where
-        getSuite :: ((s,e), (a,s)) -> TestFsm s e a
+        getSuite :: (SMstate s, SMevent e, SMaction a) => ((s,e), (a,s)) -> TestFsm s e a
         getSuite ((st, ev), (ac, st')) = TestFsm st ev st' ac
 
 -- |Find all test sequences connected from start to end

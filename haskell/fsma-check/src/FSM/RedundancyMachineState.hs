@@ -1,32 +1,42 @@
-module FSM.RedundancyFsm where
+module FSM.RedundancyMachineState where
 
-import FSM.StateMachine
-import FSM.TestFsm
+import FSM.FsmTF
 
+
+-- |Redundancy finite state machine states
 data FSM = 
-           Discovery
-         | Active
-         | ActiveAlone
-         | Standby
-         deriving (Eq, Ord, Show)
+              Discovery
+            | Active
+            | ActiveAlone
+            | Standby
+            deriving (Eq, Ord, Show)
 
-       
-data Tr = Timeout
-        | HeartBeatPrime
-        | HeartBeatSecond
-        | HeartBeatOos
-        | HeartBeatCommand
-        | GoStandby
-        deriving (Eq, Ord, Show)
+instance SMstate FSM
 
+-- |Events that can occur
+data Tr = 
+              Timeout
+            | HeartBeatPrime
+            | HeartBeatSecond
+            | HeartBeatOos
+            | HeartBeatCommand
+            | GoStandby
+            deriving (Eq, Ord, Show)
+
+instance SMevent Tr
+
+-- |Actions (placeholder)
 data RedAction = Action0
-                 deriving (Eq)
+          deriving (Eq)
 
 showAction :: RedAction -> String
 showAction Action0 = ""
 
 instance Show RedAction where
     show = showAction
+
+instance SMaction RedAction
+
 
 redundancyTransitions = [
       ((Discovery, Timeout),          (Action0, ActiveAlone))
@@ -39,12 +49,13 @@ redundancyTransitions = [
     , ((Standby,   HeartBeatCommand), (Action0, Active))
     ]
 
+
 data StateMachine s e a =
     StateMachine { 
                    states :: [s]                    -- ^states that the machine can be in
                  , events :: [e]                    -- ^events that the machine can process
                  , actions :: [a]                   -- ^actions the machine can perform
-                 , initialStates :: [s]             -- ^starting states
+                 , initialStates' :: [s]             -- ^starting states
                  , transitions :: [((s,e),(a,s))]   -- ^state transitions
                  }
 
@@ -60,13 +71,6 @@ redundancyFsm = StateMachine {
                                 , GoStandby
                                 ]
                              , actions = [Action0]
-                             , initialStates = [Discovery]
+                             , initialStates' = [Discovery]
                              , transitions = redundancyTransitions
                              }
-
-nextFsm :: FSM -> Tr -> Maybe (RedAction, FSM)
-nextFsm = nextOperation redundancyFsm
-
-redundancyTests = computeTestSuite redundancyFsm
-
-findDaisyChains = daisyChain redundancyTests []

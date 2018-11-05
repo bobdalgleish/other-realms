@@ -1,7 +1,9 @@
-import FSM.RedundancyFsm
+-- import FSM.RedundancyFsm
+import FSM.RedundancySms
 import FSM.SMS
-import FSM.FsmTF
--- import FSM.SMS
+import FSM.TestFsm
+-- import FSM.FsmTF
+-- import FSM.RedundancyMachineState
 
 main = do
-    putStrLn "Here be fun"
+    putStrLn ("Result is " ++ (show $ unreachableStates redundancyFsm))

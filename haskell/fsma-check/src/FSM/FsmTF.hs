@@ -15,7 +15,7 @@ class (SMstate s, SMevent e, SMaction a) => MachineState s e a where
     initialStates  :: MS s e a -> [s]
     allStates      :: MS s e a -> [s]
     allActions     :: MS s e a -> [a]
-    nextOperation :: MS s e a -> s -> e -> Maybe (a,s)
+    nextOperation  :: MS s e a -> s -> e -> Maybe (a,s)
     nextTransition :: MS s e a -> s -> e -> Maybe s
     nextTransition sm st ev = fmap snd $ nextOperation sm st ev
     nextState      :: MS s e a -> s -> e -> s
