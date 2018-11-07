@@ -5,7 +5,7 @@ module FSM.SMS where
 
 -- import Control.Monad.State
 import Data.Maybe (fromMaybe, maybeToList)
-import Data.List (nub)
+import Data.List (nub, break)
 
 class (Ord s, Show s) => SMstate s
 class (Ord e, Show e) => SMevent e
@@ -53,3 +53,27 @@ unreachableStates :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> [s]
 unreachableStates sm =
     let rs = transitiveClosure sm
     in [r' | r' <- tms'states sm, r' `notElem` rs]
+
+-- |Return all sequences where start state of subsequent matches end state of previous
+daisyChains :: (SMstate s, SMevent e, SMaction a) => 
+                [((s, e), (a, s))] -> [[((s, e), (a, s))]]
+daisyChains [] = []
+daisyChains (fi:fs) =
+    let (chain, universe') = daisyChain1 fi fs
+    in chain : daisyChains universe'
+
+daisyChain1 :: (SMstate s, SMevent e, SMaction a) => 
+            ((s, e), (a, s)) -> [((s, e), (a, s))]
+            -> ([((s, e), (a, s))], [((s, e), (a, s))])
+daisyChain1 start candidates =
+    let priorEnd = snd $ snd start
+        (nonc, c) = break ((priorEnd==) . fst . fst) candidates
+    in  if null c
+        then ([start], nonc)
+        else let (ch, u) = daisyChain1 (head c) (nonc ++ tail c)
+             in (start:ch, u)
+
+showDaisyChain :: (SMstate s, SMevent e, SMaction a) => 
+                  [[((s, e), (a, s))]] -> [String]
+showDaisyChain [] = []
+showDaisyChain (t: ts) = [""] ++ (map (("    "++) . show) t) ++ showDaisyChain ts
