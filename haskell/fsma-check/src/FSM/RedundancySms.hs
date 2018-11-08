@@ -43,30 +43,24 @@ redundancySpec = Map.fromList [
       , (HeartBeatSecond, [], Standby)
       , (HeartBeatCommand, [], Active)
       ])
-    , (Active, SmSpec [] [] [
+    , (Active, SmSpec [] [SendHeartBeatNow] [
         (HeartBeatOos, [], Standby)
       , (Timeout, [], ActiveAlone)
       , (GoStandby, [], Standby)
       ])
-    , (ActiveAlone, SmSpec [] [] [
+    , (ActiveAlone, SmSpec [] [SendHeartBeatNow] [
         (HeartBeatOos, [], Active)
       , (HeartBeatPrime, [], Active)
       , (HeartBeatSecond, [], Active)
-      , (HeartBeatCommand, [], Active)
+      , (HeartBeatCommand, [SendHeartBeatNow], Active)
       ])
-    , (Standby, SmSpec [] [] [
+    , (Standby, SmSpec [] [SendHeartBeatNow] [
         (HeartBeatCommand, [SendHeartBeatNow], Active)
       ])
     ]
 
 redundancyFsm :: TMS FSM Tr RedAction
-redundancyFsm = TMS {
-                               tms'states = allStates redundancySpec
-                             , tms'events = allEvents redundancySpec
-                             , tms'actions = allActions redundancySpec
-                             , tms'initialState = Discovery
-                             , tms'transitions = allTransitions redundancySpec
-                             }
+redundancyFsm = mkTms redundancySpec Discovery
 
 type Code = [String]
 

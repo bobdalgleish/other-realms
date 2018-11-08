@@ -54,7 +54,12 @@ allTransitions spec = stateSpecToTransitions (Map.keys spec)
                 ++ stateSpecToTransitions sps
         actionsFromTransition st st' ac
                               | st == st' = ac
-                              | otherwise = (sms'exit ((Map.!) spec st)) ++ ac ++ (sms'enter ((Map.!) spec st'))
+                              | otherwise = noConsecutiveActions ((sms'exit ((Map.!) spec st)) ++ ac ++ (sms'enter ((Map.!) spec st')))
+        noConsecutiveActions [] = []
+        noConsecutiveActions [ac] = [ac]
+        noConsecutiveActions (ac:ac':acs)
+                             | ac == ac' = noConsecutiveActions (ac:acs)
+                             | otherwise = ac: noConsecutiveActions (ac':acs)
 
 allStates :: (SMstate s, SMevent e, SMaction a) =>
              Map.Map s (SmSpec s e a) -> [s]
@@ -77,6 +82,16 @@ data TMS s e a where
             , tms'initialState :: s
             , tms'transitions :: [Transition s e a]
             } -> TMS s e a
+
+mkTms :: (SMstate s, SMevent e, SMaction a) =>
+         Map.Map s (SmSpec s e a) -> s -> TMS s e a
+mkTms spec initial = TMS {
+                           tms'states       = allStates spec
+                         , tms'events       = allEvents spec
+                         , tms'actions      = allActions spec
+                         , tms'initialState = initial
+                         , tms'transitions  = allTransitions spec
+                         }
 
 nextOperation :: (SMstate s, SMevent e, SMaction a) => TMS s e a
                     -> s -> e -> Maybe ([a],s)
