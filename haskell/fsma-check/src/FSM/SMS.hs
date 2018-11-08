@@ -3,9 +3,9 @@
 {-# language MultiParamTypeClasses #-}
 module FSM.SMS where
 
--- import Control.Monad.State
-import Data.Maybe (fromMaybe, maybeToList)
-import Data.List (nub, break)
+import           Data.Maybe (fromMaybe, maybeToList)
+import           Data.List (nub, break)
+import qualified Data.Map.Strict as Map
 
 class (Ord s, Show s) => SMstate s
 class (Ord e, Show e) => SMevent e
@@ -31,7 +31,7 @@ instance (SMstate s, SMevent e, SMaction a) => Eq(Transition s e a) where
 
 showTransition :: (SMstate s, SMevent e, SMaction a) => Transition s e a -> String
 showTransition (Transition st ev ac st') =
-    "(" ++ (show st) ++ ", " ++ (show ev) ++ "), (" ++ (show ac) ++ ", " ++ (show st') ++ ")"
+    "((" ++ (show st) ++ ", " ++ (show ev) ++ "), (" ++ (show ac) ++ ", " ++ (show st') ++ "))"
 
 instance (SMstate s, SMevent e, SMaction a) => Show (Transition s e a) where
     show = showTransition
@@ -39,18 +39,35 @@ instance (SMstate s, SMevent e, SMaction a) => Show (Transition s e a) where
 data SmSpec s e a where
     SmSpec :: (SMstate s, SMevent e, SMaction a) =>
                {
-                 sms'state :: s
-               , sms'exit  :: [a]
+                 sms'exit  :: [a]
                , sms'enter :: [a]
                , sms'transitions :: [(e, [a], s)]
                } -> SmSpec s e a
 
-specToTransitions :: (SMstate s, SMevent e, SMaction a) =>
-                     [SmSpec s e a] -> [Transition s e a]
-specToTransitions spec = stateSpecToTransitions spec spec
+allTransitions :: (SMstate s, SMevent e, SMaction a) =>
+                     Map.Map s (SmSpec s e a) -> [Transition s e a]
+allTransitions spec = stateSpecToTransitions (Map.keys spec)
     where
-        stateSpecToTransitions sp [] = []
-        stateSpecToTransitions sp (sp':sps) = (map (\(ev, ac, st) -> Transition (sms'state sp') ev ac st) (sms'transitions sp')) ++ stateSpecToTransitions sp sps
+        stateSpecToTransitions [] = []
+        stateSpecToTransitions (sp':sps) = 
+            (map (\(ev, ac, st) -> Transition sp' ev (actionsFromTransition sp' st ac) st) (sms'transitions ((Map.!) spec sp'))) 
+                ++ stateSpecToTransitions sps
+        actionsFromTransition st st' ac
+                              | st == st' = ac
+                              | otherwise = (sms'exit ((Map.!) spec st)) ++ ac ++ (sms'enter ((Map.!) spec st'))
+
+allStates :: (SMstate s, SMevent e, SMaction a) =>
+             Map.Map s (SmSpec s e a) -> [s]
+allStates spec = Map.keys spec
+
+allEvents :: (SMstate s, SMevent e, SMaction a) =>
+             Map.Map s (SmSpec s e a) -> [e]
+allEvents spec = nub $ map (\(ev, _, _) -> ev) $ concat $ map sms'transitions $ Map.elems spec
+
+allActions :: (SMstate s, SMevent e, SMaction a) =>
+              Map.Map s (SmSpec s e a) -> [a]
+allActions spec = nub $ concat $ map (\(_, actions, _) -> actions) $ concat $ map sms'transitions $ Map.elems spec
+
 
 data TMS s e a where
     TMS :: (SMstate s, SMevent e, SMaction a) =>
@@ -58,7 +75,6 @@ data TMS s e a where
             , tms'events :: [e]
             , tms'actions :: [a]
             , tms'initialState :: s
-            , tms'terminalStates :: [s]
             , tms'transitions :: [Transition s e a]
             } -> TMS s e a
 

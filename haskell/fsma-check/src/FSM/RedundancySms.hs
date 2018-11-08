@@ -1,6 +1,7 @@
 module FSM.RedundancySms where
 
 import FSM.SMS
+import qualified Data.Map.Strict as Map
 
 -- |Redundancy finite state machine states
 data FSM = 
@@ -24,7 +25,7 @@ data Tr =
 
 instance SMevent Tr
 
--- |Actions (placeholder)
+-- |Actions
 data RedAction = 
           StartHeartBeatTimer
         | CancelHeartBeatTimer
@@ -34,48 +35,37 @@ data RedAction =
 
 instance SMaction RedAction
 
-redundancySpec :: [SmSpec FSM Tr RedAction]
-redundancySpec = [
-      SmSpec Discovery [] [] [
+redundancySpec :: Map.Map FSM (SmSpec FSM Tr RedAction)
+redundancySpec = Map.fromList [
+      (Discovery, SmSpec [CancelDiscoveryTimer, StartHeartBeatTimer] [] [
         (Timeout, [], ActiveAlone)
       , (HeartBeatPrime, [], Active)
       , (HeartBeatSecond, [], Standby)
       , (HeartBeatCommand, [], Active)
-      ]
-    , SmSpec Active [] [] [
+      ])
+    , (Active, SmSpec [] [] [
         (HeartBeatOos, [], Standby)
       , (Timeout, [], ActiveAlone)
       , (GoStandby, [], Standby)
-      ]
-    , SmSpec ActiveAlone [] [] [
+      ])
+    , (ActiveAlone, SmSpec [] [] [
         (HeartBeatOos, [], Active)
       , (HeartBeatPrime, [], Active)
       , (HeartBeatSecond, [], Active)
       , (HeartBeatCommand, [], Active)
-      ]
-    , SmSpec Standby [] [] [
-        (HeartBeatCommand, [], Active)
-      ]
+      ])
+    , (Standby, SmSpec [] [] [
+        (HeartBeatCommand, [SendHeartBeatNow], Active)
+      ])
     ]
-
-redundancyTransitions' :: [Transition FSM Tr RedAction]
-redundancyTransitions' = specToTransitions redundancySpec
 
 redundancyFsm :: TMS FSM Tr RedAction
 redundancyFsm = TMS {
-                               tms'states = [Discovery, Active, ActiveAlone, Standby]
-                             , tms'events = [
-                                    Timeout
-                                , HeartBeatPrime
-                                , HeartBeatSecond
-                                , HeartBeatOos
-                                , HeartBeatCommand
-                                , GoStandby
-                                ]
-                             , tms'actions = []
+                               tms'states = allStates redundancySpec
+                             , tms'events = allEvents redundancySpec
+                             , tms'actions = allActions redundancySpec
                              , tms'initialState = Discovery
-                             , tms'terminalStates = []
-                             , tms'transitions = redundancyTransitions'
+                             , tms'transitions = allTransitions redundancySpec
                              }
 
 type Code = [String]

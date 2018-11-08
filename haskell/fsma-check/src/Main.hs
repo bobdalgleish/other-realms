@@ -4,7 +4,7 @@ import FSM.SMS
 -- import FSM.FsmTF
 -- import FSM.RedundancyMachineState
 
-redTests = daisyChains redundancyTransitions'
+redTests = daisyChains $ tms'transitions redundancyFsm
 
 main = do
     putStr $ unlines $ testChains redTests
