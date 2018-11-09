@@ -7,9 +7,12 @@ import           Data.Maybe (fromMaybe, maybeToList)
 import           Data.List (nub, break)
 import qualified Data.Map.Strict as Map
 
-class (Ord s, Show s) => SMstate s
-class (Ord e, Show e) => SMevent e
-class (Eq a, Show a) => SMaction a
+class (Ord s, Show s) => SMstate s where
+    showDotState :: s -> String
+class (Ord e, Show e) => SMevent e where
+    showDotEvent :: e -> String
+class (Eq a, Show a) => SMaction a where
+    showDotAction :: a -> String
 
 data Transition s e a where
     Transition :: (SMstate s, SMevent e, SMaction a) =>
@@ -39,9 +42,9 @@ instance (SMstate s, SMevent e, SMaction a) => Show (Transition s e a) where
 data SmSpec s e a where
     SmSpec :: (SMstate s, SMevent e, SMaction a) =>
                {
-                 sms'exit  :: [a]
-               , sms'enter :: [a]
-               , sms'transitions :: [(e, [a], s)]
+                 sms'exit  :: [a]                   -- ^Actions to perform on exit
+               , sms'enter :: [a]                   -- ^Actions to perform on entry
+               , sms'transitions :: [(e, [a], s)]   -- ^State transitions
                } -> SmSpec s e a
 
 allTransitions :: (SMstate s, SMevent e, SMaction a) =>
@@ -76,21 +79,25 @@ allActions spec = nub $ concat $ map (\(_, actions, _) -> actions) $ concat $ ma
 
 data TMS s e a where
     TMS :: (SMstate s, SMevent e, SMaction a) =>
-            { tms'states :: [s]
+            { tms'name :: String 
+            , tms'states :: [s]
             , tms'events :: [e]
             , tms'actions :: [a]
             , tms'initialState :: s
+            , tms'specification :: Map.Map s (SmSpec s e a)
             , tms'transitions :: [Transition s e a]
             } -> TMS s e a
 
 mkTms :: (SMstate s, SMevent e, SMaction a) =>
-         Map.Map s (SmSpec s e a) -> s -> TMS s e a
-mkTms spec initial = TMS {
-                           tms'states       = allStates spec
-                         , tms'events       = allEvents spec
-                         , tms'actions      = allActions spec
-                         , tms'initialState = initial
-                         , tms'transitions  = allTransitions spec
+         String -> Map.Map s (SmSpec s e a) -> s -> TMS s e a
+mkTms name spec initial = TMS {
+                           tms'name          = name
+                         , tms'states        = allStates spec
+                         , tms'events        = allEvents spec
+                         , tms'actions       = allActions spec
+                         , tms'initialState  = initial
+                         , tms'specification = spec
+                         , tms'transitions   = allTransitions spec
                          }
 
 nextOperation :: (SMstate s, SMevent e, SMaction a) => TMS s e a
@@ -103,7 +110,6 @@ transition [] _ _ = Nothing
 transition (t@(Transition st ev _ _):ts) st' ev'
            | st == st' && ev == ev' = Just t
            | otherwise              = transition ts st' ev'
-
 
 nextTransition :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> s -> e -> Maybe s
 nextTransition sm st ev = fmap tx'next $ transition (tms'transitions sm) st ev

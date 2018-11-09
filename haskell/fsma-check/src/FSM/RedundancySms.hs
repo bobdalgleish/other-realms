@@ -11,7 +11,8 @@ data FSM =
             | Standby
             deriving (Eq, Ord, Show)
 
-instance SMstate FSM
+instance SMstate FSM where
+  showDotState st = show st
 
 -- |Events that can occur
 data Tr = 
@@ -23,7 +24,12 @@ data Tr =
             | GoStandby
             deriving (Eq, Ord, Show)
 
-instance SMevent Tr
+instance SMevent Tr where
+  showDotEvent HeartBeatPrime   = "HB<sub>Prime</sub>"
+  showDotEvent HeartBeatSecond  = "HB<sub>Second</sub>"
+  showDotEvent HeartBeatOos     = "HB<sub>OOS</sub>"
+  showDotEvent HeartBeatCommand = "HB<sub>Command</sub>"
+  showDotEvent ev               = show ev
 
 -- |Actions
 data RedAction = 
@@ -33,7 +39,8 @@ data RedAction =
         | CancelDiscoveryTimer
         deriving (Eq, Show)
 
-instance SMaction RedAction
+instance SMaction RedAction where
+  showDotAction ac = show ac
 
 redundancySpec :: Map.Map FSM (SmSpec FSM Tr RedAction)
 redundancySpec = Map.fromList [
@@ -60,7 +67,7 @@ redundancySpec = Map.fromList [
     ]
 
 redundancyFsm :: TMS FSM Tr RedAction
-redundancyFsm = mkTms redundancySpec Discovery
+redundancyFsm = mkTms "RedundancyFsm" redundancySpec Discovery
 
 type Code = [String]
 
@@ -93,15 +100,16 @@ indent :: Code -> Code
 indent c = map ("    " ++) c
 
 testFn :: String -> [Transition FSM Tr RedAction] -> Code
-testFn name steps = [""] ++ indent (["@Test", "public void test" ++ name ++ "() throws Exception"]
-                    ++ (braces $ testChain steps))
+testFn name steps = [""] ++ ["@Test", "public void test" ++ name ++ "() throws Exception"]
+                    ++ (braces $ testChain steps)
 
-testChains :: [[Transition FSM Tr RedAction]] -> Code
-testChains daisy = concat $ map (\(n,t) -> testFn (show n) t) ([1..] `zip` daisy)
+testChains :: TMS FSM Tr RedAction -> [[Transition FSM Tr RedAction]] -> Code
+testChains sm daisy = ["", "class " ++ (tms'name sm) ++ "Test"] ++ (braces $ 
+    concat $ map (\(n,t) -> testFn (show n) t) ([1..] `zip` daisy))
 
 transitionToDot :: Transition FSM Tr RedAction -> Code
-transitionToDot tx = [show (tx'current tx) ++ " -> " ++ show (tx'next tx) ++ 
-      "[label=<" ++ show (tx'event tx) ++ ">];"]
+transitionToDot tx = [showDotState (tx'current tx) ++ " -> " ++ showDotState (tx'next tx) ++ 
+      "[label=<" ++ showDotEvent (tx'event tx) ++ ">];"]
 
-fsmToDot :: [Transition FSM Tr RedAction] -> Code
-fsmToDot f = ["digraph FSM", "{"] ++ (concat $ map transitionToDot f) ++ ["}"]
+fsmToDot :: TMS FSM Tr RedAction -> [Transition FSM Tr RedAction] -> Code
+fsmToDot sm f = ["digraph " ++ (tms'name sm) ++ " {"] ++ (concat $ map transitionToDot f) ++ ["}"]
