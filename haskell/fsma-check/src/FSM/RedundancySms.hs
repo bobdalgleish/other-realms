@@ -44,32 +44,34 @@ instance SMaction RedAction where
 
 redundancySpec :: Map.Map FSM (SmSpec FSM Tr RedAction)
 redundancySpec = Map.fromList [
-      (Discovery, SmSpec [CancelDiscoveryTimer, StartHeartBeatTimer] [] [
-        (Timeout, [], ActiveAlone)
-      , (HeartBeatPrime, [], Active)
-      , (HeartBeatSecond, [], Standby)
-      , (HeartBeatCommand, [], Active)
-      ])
-    , (Active, SmSpec [] [SendHeartBeatNow] [
-        (HeartBeatOos, [], Standby)
-      , (Timeout, [], ActiveAlone)
-      , (GoStandby, [], Standby)
-      ])
-    , (ActiveAlone, SmSpec [] [SendHeartBeatNow] [
-        (HeartBeatOos, [], Active)
-      , (HeartBeatPrime, [], Active)
-      , (HeartBeatSecond, [], Active)
-      , (HeartBeatCommand, [SendHeartBeatNow], Active)
-      ])
-    , (Standby, SmSpec [] [SendHeartBeatNow] [
-        (HeartBeatCommand, [SendHeartBeatNow], Active)
-      ])
+      (Discovery, SmSpec [CancelDiscoveryTimer, StartHeartBeatTimer] [] 
+       (Map.fromList [
+        (Timeout, ([], ActiveAlone))
+      , (HeartBeatPrime, ([], Active))
+      , (HeartBeatSecond, ([], Standby))
+      , (HeartBeatCommand, ([], Active))
+      ]))
+    , (Active, SmSpec [] [SendHeartBeatNow] 
+       (Map.fromList [
+        (HeartBeatOos, ([], Standby))
+      , (Timeout, ([], ActiveAlone))
+      , (GoStandby, ([], Standby))
+      ]))
+    , (ActiveAlone, SmSpec [] [SendHeartBeatNow] 
+       (Map.fromList [
+        (HeartBeatOos, ([], Active))
+      , (HeartBeatPrime, ([], Active))
+      , (HeartBeatSecond, ([], Active))
+      , (HeartBeatCommand, ([SendHeartBeatNow], Active))
+      ]))
+    , (Standby, SmSpec [] [SendHeartBeatNow] 
+       (Map.fromList [
+        (HeartBeatCommand, ([SendHeartBeatNow], Active))
+      ]))
     ]
 
 redundancyFsm :: TMS FSM Tr RedAction
 redundancyFsm = mkTms "RedundancyFsm" redundancySpec Discovery
-
-type Code = [String]
 
 testAction :: RedAction -> Code
 testAction ac = ["check" ++ (show ac) ++ "();"]
@@ -93,23 +95,12 @@ testChain chain@(start:remainder) =
       testTransitions (Transition _ ev ac st') =
          applyEvent ev ++ testState st' ++ (concat $ map testAction ac)
 
-braces :: Code -> Code
-braces c = ["{"] ++ indent c ++ ["}"]
-
-indent :: Code -> Code
-indent c = map ("    " ++) c
-
 testFn :: String -> [Transition FSM Tr RedAction] -> Code
-testFn name steps = [""] ++ ["@Test", "public void test" ++ name ++ "() throws Exception"]
-                    ++ (braces $ testChain steps)
+testFn name steps = ["", "@Test"] ++ 
+              braceGroup ("public void test" ++ name)
+                    (testChain steps)
 
 testChains :: TMS FSM Tr RedAction -> [[Transition FSM Tr RedAction]] -> Code
-testChains sm daisy = ["", "class " ++ (tms'name sm) ++ "Test"] ++ (braces $ 
-    concat $ map (\(n,t) -> testFn (show n) t) ([1..] `zip` daisy))
-
-transitionToDot :: Transition FSM Tr RedAction -> Code
-transitionToDot tx = [showDotState (tx'current tx) ++ " -> " ++ showDotState (tx'next tx) ++ 
-      "[label=<" ++ showDotEvent (tx'event tx) ++ ">];"]
-
-fsmToDot :: TMS FSM Tr RedAction -> [Transition FSM Tr RedAction] -> Code
-fsmToDot sm f = ["digraph " ++ (tms'name sm) ++ " {"] ++ (concat $ map transitionToDot f) ++ ["}"]
+testChains sm daisy = [""] ++ 
+    braceGroup ("class " ++ (tms'name sm) ++ "Test")
+      (concat $ map (\(n,t) -> testFn (show n) t) ([1..] `zip` daisy))

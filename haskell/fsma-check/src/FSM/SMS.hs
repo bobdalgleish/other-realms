@@ -3,7 +3,7 @@
 {-# language MultiParamTypeClasses #-}
 module FSM.SMS where
 
-import           Data.Maybe (fromMaybe, maybeToList)
+import           Data.Maybe (fromMaybe)
 import           Data.List (nub, break)
 import qualified Data.Map.Strict as Map
 
@@ -36,15 +36,37 @@ showTransition :: (SMstate s, SMevent e, SMaction a) => Transition s e a -> Stri
 showTransition (Transition st ev ac st') =
     "((" ++ (show st) ++ ", " ++ (show ev) ++ "), (" ++ (show ac) ++ ", " ++ (show st') ++ "))"
 
+-- |Handle lines of code
+type Code = [String]
+
+-- |Indent lines of code by 4-spaces
+indent :: Code -> Code
+indent c = map ("    " ++) c
+
+braceGroup :: String -> Code -> Code
+braceGroup pre code = [pre ++ " {"] ++ indent code ++ ["}"]
+    
+showDotTransition :: (SMstate s, SMevent e) => s -> e -> s -> Code
+showDotTransition st ev  st' = [showDotState st ++ " -> " ++ showDotState st' ++ 
+    "[label=<" ++ showDotEvent ev ++ ">];"]
+
+fsmToDot :: (SMstate s, SMevent e, SMaction a) =>
+            TMS s e a -> Code
+fsmToDot sm = braceGroup ("digraph " ++ tms'name sm)
+                (concat $ map mapEvents (Map.keys $ tms'specification sm))
+        where
+            mapEvents st = concat $ map (\(ev, (_, st')) -> showDotTransition st ev st') 
+                                (fromMaybe [] (Map.assocs <$> (stateTransitions sm st)))
+
 instance (SMstate s, SMevent e, SMaction a) => Show (Transition s e a) where
     show = showTransition
 
 data SmSpec s e a where
     SmSpec :: (SMstate s, SMevent e, SMaction a) =>
                {
-                 sms'exit  :: [a]                   -- ^Actions to perform on exit
-               , sms'enter :: [a]                   -- ^Actions to perform on entry
-               , sms'transitions :: [(e, [a], s)]   -- ^State transitions
+                 sms'exit  :: [a]                       -- ^Actions to perform on exit
+               , sms'enter :: [a]                       -- ^Actions to perform on entry
+               , sms'transitions :: Map.Map e ([a], s)  -- ^State transitions
                } -> SmSpec s e a
 
 allTransitions :: (SMstate s, SMevent e, SMaction a) =>
@@ -52,17 +74,18 @@ allTransitions :: (SMstate s, SMevent e, SMaction a) =>
 allTransitions spec = stateSpecToTransitions (Map.keys spec)
     where
         stateSpecToTransitions [] = []
-        stateSpecToTransitions (sp':sps) = 
-            (map (\(ev, ac, st) -> Transition sp' ev (actionsFromTransition sp' st ac) st) (sms'transitions ((Map.!) spec sp'))) 
+        stateSpecToTransitions (state:sps) = 
+            (map (\(ev, (ac, st)) -> Transition state ev (actionsFromTransition state st ac) st) (Map.assocs (sms'transitions ((Map.!) spec state)))) 
                 ++ stateSpecToTransitions sps
         actionsFromTransition st st' ac
                               | st == st' = ac
                               | otherwise = noConsecutiveActions ((sms'exit ((Map.!) spec st)) ++ ac ++ (sms'enter ((Map.!) spec st')))
-        noConsecutiveActions [] = []
-        noConsecutiveActions [ac] = [ac]
-        noConsecutiveActions (ac:ac':acs)
-                             | ac == ac' = noConsecutiveActions (ac:acs)
-                             | otherwise = ac: noConsecutiveActions (ac':acs)
+                              where
+                                noConsecutiveActions [] = []
+                                noConsecutiveActions [ac] = [ac]
+                                noConsecutiveActions (ac:ac':acs)
+                                                    | ac == ac' = noConsecutiveActions (ac:acs)
+                                                    | otherwise = ac: noConsecutiveActions (ac':acs)
 
 allStates :: (SMstate s, SMevent e, SMaction a) =>
              Map.Map s (SmSpec s e a) -> [s]
@@ -70,39 +93,33 @@ allStates spec = Map.keys spec
 
 allEvents :: (SMstate s, SMevent e, SMaction a) =>
              Map.Map s (SmSpec s e a) -> [e]
-allEvents spec = nub $ map (\(ev, _, _) -> ev) $ concat $ map sms'transitions $ Map.elems spec
-
-allActions :: (SMstate s, SMevent e, SMaction a) =>
-              Map.Map s (SmSpec s e a) -> [a]
-allActions spec = nub $ concat $ map (\(_, actions, _) -> actions) $ concat $ map sms'transitions $ Map.elems spec
-
+allEvents spec = nub $ concat $ map Map.keys $ map sms'transitions $ Map.elems spec
 
 data TMS s e a where
     TMS :: (SMstate s, SMevent e, SMaction a) =>
-            { tms'name :: String 
-            , tms'states :: [s]
-            , tms'events :: [e]
-            , tms'actions :: [a]
-            , tms'initialState :: s
-            , tms'specification :: Map.Map s (SmSpec s e a)
-            , tms'transitions :: [Transition s e a]
+            { tms'name          :: String                   -- ^Name of the state machine
+            , tms'initialState  :: s                        -- ^Initial state
+            , tms'specification :: Map.Map s (SmSpec s e a) -- ^Transition specification
             } -> TMS s e a
 
 mkTms :: (SMstate s, SMevent e, SMaction a) =>
          String -> Map.Map s (SmSpec s e a) -> s -> TMS s e a
 mkTms name spec initial = TMS {
                            tms'name          = name
-                         , tms'states        = allStates spec
-                         , tms'events        = allEvents spec
-                         , tms'actions       = allActions spec
                          , tms'initialState  = initial
                          , tms'specification = spec
-                         , tms'transitions   = allTransitions spec
                          }
+
+stateTransitions :: (SMstate s, SMevent e, SMaction a) =>
+                    TMS s e a -> s -> Maybe (Map.Map e ([a], s))
+stateTransitions sm st = sms'transitions <$> ((Map.!?) (tms'specification sm) st)
 
 nextOperation :: (SMstate s, SMevent e, SMaction a) => TMS s e a
                     -> s -> e -> Maybe ([a],s)
-nextOperation sm st ev = fmap (\t -> (tx'actions t, tx'next t)) $ transition (tms'transitions sm) st ev
+nextOperation sm st ev = 
+        case stateTransitions sm st of
+            Just evMap -> (Map.!?) evMap ev
+            Nothing    -> Nothing
 
 transition :: (SMstate s, SMevent e, SMaction a) =>
               [Transition s e a] -> s -> e -> Maybe (Transition s e a)
@@ -112,7 +129,7 @@ transition (t@(Transition st ev _ _):ts) st' ev'
            | otherwise              = transition ts st' ev'
 
 nextTransition :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> s -> e -> Maybe s
-nextTransition sm st ev = fmap tx'next $ transition (tms'transitions sm) st ev
+nextTransition sm st ev = fmap snd $ nextOperation sm st ev
 
 nextState :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> s -> e -> s
 nextState sm st ev = fromMaybe st $ nextTransition sm st ev
@@ -129,16 +146,12 @@ transitiveClosure sm = allTransitions sm [tms'initialState sm] [tms'initialState
                 if null rs
                 then allTransitions sm sts reach
                 else allTransitions sm (sts ++ rs) (reach ++ rs)
-        reachables :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> s -> [s]
-        reachables sm st = nub $ allNexts sm st (tms'events sm)
-        allNexts :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> s -> [e] -> [s]
-        allNexts sm _ [] = []
-        allNexts sm st (ev:evs) = (maybeToList $ nextTransition sm st ev) ++ allNexts sm st evs
+        reachables sm st = map snd $ fromMaybe [] (Map.elems <$> (stateTransitions sm st))
 
 unreachableStates :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> [s]
 unreachableStates sm =
     let rs = transitiveClosure sm
-    in [r' | r' <- tms'states sm, r' `notElem` rs]
+    in [r' | r' <- allStates $ tms'specification sm, r' `notElem` rs]
 
 -- |Return all sequences where start state of subsequent matches end state of previous
 daisyChains :: (SMstate s, SMevent e, SMaction a) => 

@@ -4,4 +4,4 @@ import FSM.SMS
 
 main = do
     -- putStr $ unlines $ (testChains redundancyFsm (daisyChains $ tms'transitions redundancyFsm))
-    putStr $ unlines $ fsmToDot redundancyFsm (tms'transitions redundancyFsm)
+    putStr $ unlines $ fsmToDot redundancyFsm
