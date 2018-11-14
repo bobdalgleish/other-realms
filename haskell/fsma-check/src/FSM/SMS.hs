@@ -87,14 +87,6 @@ allTransitions spec = stateSpecToTransitions (Map.keys spec)
                                                     | ac == ac' = noConsecutiveActions (ac:acs)
                                                     | otherwise = ac: noConsecutiveActions (ac':acs)
 
-allStates :: (SMstate s, SMevent e, SMaction a) =>
-             Map.Map s (SmSpec s e a) -> [s]
-allStates spec = Map.keys spec
-
-allEvents :: (SMstate s, SMevent e, SMaction a) =>
-             Map.Map s (SmSpec s e a) -> [e]
-allEvents spec = nub $ concat $ map Map.keys $ map sms'transitions $ Map.elems spec
-
 data TMS s e a where
     TMS :: (SMstate s, SMevent e, SMaction a) =>
             { tms'name          :: String                   -- ^Name of the state machine
@@ -110,6 +102,7 @@ mkTms name spec initial = TMS {
                          , tms'specification = spec
                          }
 
+-- |Provide the transition map for a particular state
 stateTransitions :: (SMstate s, SMevent e, SMaction a) =>
                     TMS s e a -> s -> Maybe (Map.Map e ([a], s))
 stateTransitions sm st = sms'transitions <$> ((Map.!?) (tms'specification sm) st)
@@ -151,7 +144,7 @@ transitiveClosure sm = allTransitions sm [tms'initialState sm] [tms'initialState
 unreachableStates :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> [s]
 unreachableStates sm =
     let rs = transitiveClosure sm
-    in [r' | r' <- allStates $ tms'specification sm, r' `notElem` rs]
+    in [r' | r' <- Map.keys $ tms'specification sm, r' `notElem` rs]
 
 -- |Return all sequences where start state of subsequent matches end state of previous
 daisyChains :: (SMstate s, SMevent e, SMaction a) => 
@@ -176,3 +169,42 @@ showDaisyChain :: (SMstate s, SMevent e, SMaction a) =>
                   [[Transition s e a]] -> [String]
 showDaisyChain [] = []
 showDaisyChain (t: ts) = [""] ++ (map (("    "++) . show) t) ++ showDaisyChain ts
+
+-- |Generate Haskell version of state machine
+showHaskell :: (SMstate s, SMevent e, SMaction a) => 
+               TMS s e a -> Code
+showHaskell sm = fsmToHaskellStates ++
+                 fsmToHaskellEvents ++
+                 fsmToHaskellActions ++
+                 fsmToHaskellTransitions
+    where
+        smName = tms'name sm
+        smStates = Map.keys $ tms'specification sm
+        bareTransitions = map sms'transitions $ Map.elems $ tms'specification sm
+        smEvents = nub $ concat $ map Map.keys bareTransitions
+        smTransitions = allTransitions $ tms'specification sm
+        smActions = nub $ concat $ map tx'actions smTransitions
+        fsmToHaskellStates = ["data " ++ stateName ++ " ="] ++
+                             indent ((map (("| "++) . show) smStates) ++
+                                     ["deriving (Show, Eq)"])
+        fsmToHaskellEvents = ["data " ++ eventName ++ " =" ] ++
+                             indent ( (map (("| "++). show) smEvents) ++
+                                      ["deriving (Show, Eq)"])
+        fsmToHaskellActions = ["data " ++ actionName ++ " ="] ++
+                              indent ( (map (("| "++) . show) smActions) ++
+                                       ["deriving (Show, Eq)"])
+        fsmToHaskellTransitions = ["transition :: " ++ 
+                                    stateName ++ " -> " ++ 
+                                    eventName ++ " -> ([" ++ 
+                                    actionName ++ "], " ++ 
+                                    stateName ++ ")" ] ++
+                                  (map asHaskellTransition smTransitions) ++
+                                  ["transition st _ = ([], st)"]
+        asHaskellTransition tr = "transition " ++ 
+                                    (show $ tx'current tr) ++
+                                    " " ++ (show $ tx'event tr) ++
+                                    " = (" ++ (show $ tx'actions tr) ++
+                                    ", " ++ (show $ tx'next tr) ++ ")"
+        stateName  = smName ++ "'State"
+        eventName  = smName ++ "'Event"
+        actionName = smName ++ "'Action"
