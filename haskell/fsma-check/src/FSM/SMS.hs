@@ -151,24 +151,22 @@ daisyChains :: (SMstate s, SMevent e, SMaction a) =>
                 [Transition s e a] -> [[Transition s e a]]
 daisyChains [] = []
 daisyChains (fi:fs) =
-    let (chain, universe') = daisyChain1 fi fs
+    let (chain, universe') = dc fi fs
     in chain : daisyChains universe'
-
-daisyChain1 :: (SMstate s, SMevent e, SMaction a) => 
-            Transition s e a -> [Transition s e a]
-            -> ([Transition s e a], [Transition s e a])
-daisyChain1 start candidates =
-    let priorEnd = tx'next start
-        (nonc, c) = break ((priorEnd==) . tx'current) candidates
-    in  if null c
-        then ([start], nonc)
-        else let (ch, u) = daisyChain1 (head c) (nonc ++ tail c)
-             in (start:ch, u)
+    where
+        dc start candidates =
+            let priorEnd = tx'next start
+                (noncandidates, potentials) = break ((priorEnd ==) . tx'current) candidates
+            in
+                if null potentials
+                then ([start], noncandidates)
+                else let (ch, u) = dc (head potentials) (noncandidates ++ tail potentials)
+                     in (start: ch, u)
 
 showDaisyChain :: (SMstate s, SMevent e, SMaction a) => 
                   [[Transition s e a]] -> [String]
 showDaisyChain [] = []
-showDaisyChain (t: ts) = [""] ++ (map (("    "++) . show) t) ++ showDaisyChain ts
+showDaisyChain (t: ts) = [""] ++ (indent $ map show t) ++ showDaisyChain ts
 
 -- |Generate Haskell version of state machine
 showHaskell :: (SMstate s, SMevent e, SMaction a) => 
