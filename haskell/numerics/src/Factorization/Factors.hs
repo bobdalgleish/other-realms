@@ -1,4 +1,4 @@
-module Factors (
+module Factorization.Factors (
     primesBelow,
     primeFactors,
     allFactors

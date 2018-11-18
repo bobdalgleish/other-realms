@@ -1,4 +1,4 @@
-module Primes (
+module Factorization.Primes (
     primesTMWE, primesSA
 ) where
 
