@@ -3,9 +3,10 @@
 {-# language MultiParamTypeClasses #-}
 module FSM.SMS where
 
-import           Data.Maybe (fromMaybe)
+import           Data.Maybe (fromMaybe, fromJust, maybeToList)
 import           Data.List (nub, break)
 import qualified Data.Map.Strict as Map
+-- import Debug.Trace
 
 class (Ord s, Show s) => SMstate s where
     showDotState :: s -> String
@@ -66,41 +67,68 @@ data SmSpec s e a where
                {
                  sms'exit  :: [a]                       -- ^Actions to perform on exit
                , sms'enter :: [a]                       -- ^Actions to perform on entry
+               , sms'substates :: [s]                   -- ^Substates of this state
                , sms'transitions :: Map.Map e ([a], s)  -- ^State transitions
                } -> SmSpec s e a
 
-allTransitions :: (SMstate s, SMevent e, SMaction a) =>
-                     Map.Map s (SmSpec s e a) -> [Transition s e a]
-allTransitions spec = stateSpecToTransitions (Map.keys spec)
-    where
-        stateSpecToTransitions [] = []
-        stateSpecToTransitions (state:sps) = 
-            (map (\(ev, (ac, st)) -> Transition state ev (actionsFromTransition state st ac) st) (Map.assocs (sms'transitions ((Map.!) spec state)))) 
-                ++ stateSpecToTransitions sps
-        actionsFromTransition st st' ac
-                              | st == st' = ac
-                              | otherwise = noConsecutiveActions ((sms'exit ((Map.!) spec st)) ++ ac ++ (sms'enter ((Map.!) spec st')))
-                              where
-                                noConsecutiveActions [] = []
-                                noConsecutiveActions [ac] = [ac]
-                                noConsecutiveActions (ac:ac':acs)
-                                                    | ac == ac' = noConsecutiveActions (ac:acs)
-                                                    | otherwise = ac: noConsecutiveActions (ac':acs)
+mkTransition :: (SMstate s, SMevent e, SMaction a) => [(e, ([a], s))] -> SmSpec s e a
+mkTransition m = SmSpec [] [] [] (Map.fromList m)
 
 data TMS s e a where
     TMS :: (SMstate s, SMevent e, SMaction a) =>
             { tms'name          :: String                   -- ^Name of the state machine
             , tms'initialState  :: s                        -- ^Initial state
+            , tms'childParent   :: Map.Map s s              -- ^Map from child state to parent
             , tms'specification :: Map.Map s (SmSpec s e a) -- ^Transition specification
             } -> TMS s e a
 
 mkTms :: (SMstate s, SMevent e, SMaction a) =>
          String -> Map.Map s (SmSpec s e a) -> s -> TMS s e a
-mkTms name spec initial = TMS {
-                           tms'name          = name
-                         , tms'initialState  = initial
-                         , tms'specification = spec
-                         }
+mkTms name spec initial =
+    let childrenOf = map (\(st, SmSpec _ _ subs _) -> (st, subs)) $ Map.assocs spec
+        childPlusParent = map (\(p, c) -> map (\stc -> (stc, p)) c) childrenOf
+        parentMap = Map.fromList $ concat childPlusParent
+    in TMS {
+              tms'name          = name
+            , tms'initialState  = initial
+            , tms'childParent   = parentMap
+            , tms'specification = spec
+            }
+
+allTransitions :: (SMstate s, SMevent e, SMaction a) =>
+                    TMS s e a -> [Transition s e a]
+allTransitions sm = concat $ map stateSpecToTransitions $ Map.keys spec
+    where
+        spec = tms'specification sm
+        stateSpecToTransitions state = txspec state state [] (filteredEvents [] state)
+        filteredEvents alreadyHandled st = filter ((`notElem` alreadyHandled) . fst) (Map.assocs $ fromJust $ stateTransitions sm st)
+        txspec startState currentState handledEvents eventTransitionList =
+            (map txItem eventTransitionList) ++ 
+                txParentSpec (handledEvents ++ map fst eventTransitionList)
+            where 
+                txItem (ev, (ac, st)) = Transition startState ev (actionsFromTransition startState st ac) st
+                txParentSpec handledEvents' = case (Map.!?) (tms'childParent sm) currentState of
+                        Just parent -> txspec startState parent handledEvents' (filteredEvents handledEvents' parent)
+                        Nothing -> []
+                actionsFromTransition st st' ac
+                            | st == st' = ac
+                            | parentOf st == parentOf st' =
+                                if st == parentOf st
+                                then noConsecutiveActions (ac ++ entranceActions st')
+                                else noConsecutiveActions (exitActions st ++ ac)
+                            | otherwise = noConsecutiveActions (concat $ map exitActions $ ancestors st) ++ 
+                                          ac ++ (concat $ map entranceActions $ reverse $ ancestors st')
+                            where
+                                parentOf state = fromMaybe state $ ((Map.!?) (tms'childParent sm) state)
+                                -- |Provide list of ancestors, including self
+                                ancestors state = [state] ++ (maybeToList ((Map.!?) (tms'childParent sm) state))
+                                entranceActions state = sms'enter ((Map.!) spec state)
+                                exitActions state = sms'exit ((Map.!) spec state)
+                                noConsecutiveActions [] = []
+                                noConsecutiveActions [ac] = [ac]
+                                noConsecutiveActions (ac: acs@(ac':_))
+                                                    | ac == ac' = noConsecutiveActions acs
+                                                    | otherwise = ac: noConsecutiveActions acs
 
 -- |Provide the transition map for a particular state
 stateTransitions :: (SMstate s, SMevent e, SMaction a) =>
@@ -128,17 +156,17 @@ nextState :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> s -> e -> s
 nextState sm st ev = fromMaybe st $ nextTransition sm st ev
 
 transitiveClosure :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> [s]
-transitiveClosure sm = allTransitions sm [tms'initialState sm] [tms'initialState sm]
+transitiveClosure sm = allStates sm [tms'initialState sm] [tms'initialState sm]
     where
-        allTransitions :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> [s] -> [s] -> [s]
-        allTransitions sm [] reach = reach
-        allTransitions sm reachable@(st:sts) reach =
+        allStates :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> [s] -> [s] -> [s]
+        allStates sm [] reach = reach
+        allStates sm reachable@(st:sts) reach =
             let r = reachables sm st
                 rs = [r' | r' <- r, r' `notElem` reach]
             in
                 if null rs
-                then allTransitions sm sts reach
-                else allTransitions sm (sts ++ rs) (reach ++ rs)
+                then allStates sm sts reach
+                else allStates sm (sts ++ rs) (reach ++ rs)
         reachables sm st = map snd $ fromMaybe [] (Map.elems <$> (stateTransitions sm st))
 
 unreachableStates :: (SMstate s, SMevent e, SMaction a) => TMS s e a -> [s]
@@ -180,7 +208,7 @@ showHaskell sm = fsmToHaskellStates ++
         smStates = Map.keys $ tms'specification sm
         bareTransitions = map sms'transitions $ Map.elems $ tms'specification sm
         smEvents = nub $ concat $ map Map.keys bareTransitions
-        smTransitions = allTransitions $ tms'specification sm
+        smTransitions = allTransitions sm
         smActions = nub $ concat $ map tx'actions smTransitions
         fsmToHaskellStates = ["data " ++ stateName ++ " ="] ++
                              indent ((map (("| "++) . show) smStates) ++
