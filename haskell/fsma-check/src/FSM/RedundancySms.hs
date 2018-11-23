@@ -57,7 +57,7 @@ redundancySpec = Map.fromList [
       , (Timeout, ([], ActiveAlone))
       , (GoStandby, ([], Standby))
       ]))
-    , (ActiveAlone, SmSpec [] [SendHeartBeatNow] []
+    , (ActiveAlone, SmSpec [] [] []
        (Map.fromList [
         (HeartBeatOos, ([], Active))
       , (HeartBeatPrime, ([], Active))
@@ -67,6 +67,7 @@ redundancySpec = Map.fromList [
     , (Standby, SmSpec [] [SendHeartBeatNow] []
        (Map.fromList [
         (HeartBeatCommand, ([SendHeartBeatNow], Active))
+        , (Timeout, ([], ActiveAlone))
       ]))
     ]
 

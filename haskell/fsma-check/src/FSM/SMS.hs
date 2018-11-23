@@ -4,7 +4,7 @@
 module FSM.SMS where
 
 import           Data.Maybe (fromMaybe, fromJust, maybeToList)
-import           Data.List (nub, break)
+import           Data.List (nub, break, intercalate)
 import qualified Data.Map.Strict as Map
 -- import Debug.Trace
 
@@ -45,8 +45,14 @@ indent :: Code -> Code
 indent c = map ("    " ++) c
 
 braceGroup :: String -> Code -> Code
-braceGroup pre code = [pre ++ " {"] ++ indent code ++ ["}"]
+braceGroup pre code = 
+    let opening  = if pre == "" then ["{"] else [pre ++ " {"]
+    in opening ++ indent code ++ ["}"]
     
+wrap tag stuff = ["<" ++ tag ++ ">" ++ stuff ++ "</" ++ (tagOf tag) ++ ">"]
+wrapl tag stuff = ["<" ++ tag ++ ">"] ++ (indent stuff) ++ ["</" ++ (tagOf tag) ++ ">"]
+tagOf tag = head $ words tag
+
 showDotTransition :: (SMstate s, SMevent e) => s -> e -> s -> Code
 showDotTransition st ev  st' = [showDotState st ++ " -> " ++ showDotState st' ++ 
     "[label=<" ++ showDotEvent ev ++ ">];"]
@@ -54,11 +60,39 @@ showDotTransition st ev  st' = [showDotState st ++ " -> " ++ showDotState st' ++
 fsmToDot :: (SMstate s, SMevent e, SMaction a) =>
             TMS s e a -> Code
 fsmToDot sm = braceGroup ("digraph " ++ tms'name sm)
-                (concat $ map mapEvents (Map.keys $ tms'specification sm))
+                (concat (
+                    subgraphs ++    
+                    (map mapEvents (Map.keys $ tms'specification sm))))
         where
+            superStates = filter (\lf -> length lf > 1) $ map (\(st, SmSpec _ _ subs _) -> st:subs)
+                           $ Map.assocs (tms'specification sm)
+            subgraph sg = braceGroup ("subgraph cluster" ++ (show $ head sg)) 
+                            (["label=<" ++ (show $ head sg) ++ ">",
+                              "style = \"rounded\""] ++ (map show sg))
+            subgraphs = map subgraph superStates
             mapEvents st = concat $ map (\(ev, (_, st')) -> showDotTransition st ev st') 
-                                (fromMaybe [] (Map.assocs <$> (stateTransitions sm st)))
-
+                (fromMaybe [] (Map.assocs <$> (stateTransitions sm st)))
+            
+fsmToTable :: (SMstate s, SMevent e, SMaction a) =>
+              TMS s e a -> Code
+fsmToTable sm =
+    table $
+        caption (tms'name sm) ++
+        headerRow ++
+        (concat $ map (row . transitionToData) (allTransitions sm))
+    where
+        table     = wrapl "table style=\"1px solid black;border-collapse:collapse;\"" 
+        caption   = wrap "caption style=\"font-size:120%;font-weight:bold\""
+        headerRow = row $ concat $ map th ["State", "Event", "Actions", "Next State"]
+        row       = wrapl "tr"
+        th        = wrap "th style=\"border:1px solid black;padding:5px\""
+        td        = wrap "td style=\"border:1px solid black;padding:5px\""
+        transitionToData (Transition st ev actions st') =
+            th (show st) ++
+            td (show ev) ++
+            td (intercalate "<br/>" $ map show actions) ++
+            td (show st')
+ 
 instance (SMstate s, SMevent e, SMaction a) => Show (Transition s e a) where
     show = showTransition
 
