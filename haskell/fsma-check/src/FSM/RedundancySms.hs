@@ -44,27 +44,27 @@ instance SMaction RedAction where
 
 redundancySpec :: Map.Map FSM (SmSpec FSM Tr RedAction)
 redundancySpec = Map.fromList [
-      (Discovery, SmSpec [CancelDiscoveryTimer, StartHeartBeatTimer] [] 
+      (Discovery, SmSpec [CancelDiscoveryTimer, StartHeartBeatTimer] [] []
        (Map.fromList [
         (Timeout, ([], ActiveAlone))
       , (HeartBeatPrime, ([], Active))
       , (HeartBeatSecond, ([], Standby))
       , (HeartBeatCommand, ([], Active))
       ]))
-    , (Active, SmSpec [] [SendHeartBeatNow] 
+    , (Active, SmSpec [] [SendHeartBeatNow] [ActiveAlone]
        (Map.fromList [
         (HeartBeatOos, ([], Standby))
       , (Timeout, ([], ActiveAlone))
       , (GoStandby, ([], Standby))
       ]))
-    , (ActiveAlone, SmSpec [] [SendHeartBeatNow] 
+    , (ActiveAlone, SmSpec [] [SendHeartBeatNow] []
        (Map.fromList [
         (HeartBeatOos, ([], Active))
       , (HeartBeatPrime, ([], Active))
       , (HeartBeatSecond, ([], Active))
       , (HeartBeatCommand, ([SendHeartBeatNow], Active))
       ]))
-    , (Standby, SmSpec [] [SendHeartBeatNow] 
+    , (Standby, SmSpec [] [SendHeartBeatNow] []
        (Map.fromList [
         (HeartBeatCommand, ([SendHeartBeatNow], Active))
       ]))
