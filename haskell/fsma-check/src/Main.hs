@@ -3,8 +3,8 @@ import FSM.TSMS
 import FSM.SMS
 -- import System.IO
 
--- TODO output table of transitions - HTML or XML
 -- TODO show nested states in table
+-- TODO show nested states adjacent to parent transition
 
 writeHtmlTable sm = do
     writeFile (tms'name sm ++ ".html") (unlines $ fsmToTable sm)

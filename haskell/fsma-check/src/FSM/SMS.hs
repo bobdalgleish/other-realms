@@ -4,7 +4,7 @@
 module FSM.SMS where
 
 import           Data.Maybe (fromMaybe, fromJust, maybeToList)
-import           Data.List (nub, break, intercalate)
+import           Data.List (nub, break, intercalate, (\\))
 import qualified Data.Map.Strict as Map
 -- import Debug.Trace
 
@@ -79,16 +79,21 @@ fsmToTable sm =
     table $
         caption (tms'name sm) ++
         headerRow ++
-        (concat $ map (row . transitionToData) (allTransitions sm))
+        (concat rowsByState)
     where
-        table     = wrapl "table style=\"1px solid black;border-collapse:collapse;\"" 
-        caption   = wrap "caption style=\"font-size:120%;font-weight:bold\""
-        headerRow = row $ concat $ map th ["State", "Event", "Actions", "Next State"]
-        row       = wrapl "tr"
-        th        = wrap "th style=\"border:1px solid black;padding:5px\""
-        td        = wrap "td style=\"border:1px solid black;padding:5px\""
+        table       = wrapl "table style=\"1px solid black;border-collapse:collapse;\"" 
+        caption     = wrap "caption style=\"font-size:120%;font-weight:bold\""
+        headerRow   = row $ concat $ map th ["State", "Substate", "Event", "Actions", "Next State"]
+        row         = wrapl "tr"
+        th          = wrap "th style=\"border:1px solid black;padding:5px\""
+        td          = wrap "td style=\"border:1px solid black;padding:5px\""
+        rowsByState = map (row . transitionToData) stTrans
+        stateRows   = allTransitions sm
+        stTrans     = concat $ map (\st -> filter ((st ==) . tx'current) stateRows) (orderStates sm)
+        parentOf state = fromMaybe state $ ((Map.!?) (tms'childParent sm) state)
         transitionToData (Transition st ev actions st') =
-            th (show st) ++
+            th (show $ parentOf st) ++
+            th (if st == parentOf st then "" else show st) ++
             td (show ev) ++
             td (intercalate "<br/>" $ map show actions) ++
             td (show st')
@@ -128,6 +133,17 @@ mkTms name spec initial =
             , tms'childParent   = parentMap
             , tms'specification = spec
             }
+
+-- |Order states (lexically) with substates following parents
+orderStates :: (SMstate s, SMevent e, SMaction a) =>
+               TMS s e a -> [s]
+orderStates sm = 
+    concat $ map parentsThenChildren parents
+    where
+        states   = Map.keys $ tms'specification sm
+        children = Map.keys $ tms'childParent sm
+        parents  = states \\ children
+        parentsThenChildren st = st: sms'substates ((Map.!) (tms'specification sm) st)
 
 allTransitions :: (SMstate s, SMevent e, SMaction a) =>
                     TMS s e a -> [Transition s e a]
