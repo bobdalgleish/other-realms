@@ -1,6 +1,7 @@
 import FSM.TSMS
 -- import FSM.RedundancySms
 import FSM.SMS
+import FSM.TableHtml
 -- import System.IO
 
 {-
@@ -28,5 +29,5 @@ main = do
     -- putStr $ unlines $ showHaskell testFsm
     -- putStr $ unlines $ concat testTransitions
     -- putStr $ unlines $ fsmToDot testFsm
-    -- writeHtmlTable testFsm
-    putStr $ unlines $ showStateless4j testFsm
+    writeHtmlTable testFsm
+    -- putStr $ unlines $ showStateless4j testFsm

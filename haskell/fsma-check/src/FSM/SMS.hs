@@ -5,9 +5,9 @@
 module FSM.SMS where
 
 import           Data.Maybe (fromMaybe, fromJust, maybeToList)
-import           Data.List (nub, break, intercalate, (\\))
+import           Data.List (nub, break, (\\))
+import           FSM.Code
 import qualified Data.Map.Strict as Map
-import           Data.Char
 -- import Debug.Trace
 import Data.String.Interpolate
 
@@ -40,28 +40,6 @@ showTransition :: (SMstate s, SMevent e, SMaction a) => Transition s e a -> Stri
 showTransition (Transition st ev ac st') =
     "((" ++ (show st) ++ ", " ++ (show ev) ++ "), (" ++ (show ac) ++ ", " ++ (show st') ++ "))"
 
--- |Handle lines of code
-type Code = [String]
-
--- |Indent lines of code by 4-spaces
-indent :: Code -> Code
-indent c = map ("    " ++) c
-
-braceGroup :: String -> Code -> Code
-braceGroup pre code = 
-    let opening  = if pre == "" then ["{"] else [pre ++ " {"]
-    in opening ++ indent code ++ ["}"]
-    
-wrap tag stuff = ["<" ++ tag ++ ">" ++ stuff ++ "</" ++ (tagOf tag) ++ ">"]
-wrapl tag stuff = ["<" ++ tag ++ ">"] ++ (indent stuff) ++ ["</" ++ (tagOf tag) ++ ">"]
-tagOf tag = head $ words tag
-
-firstToUpper :: String -> String
-firstToUpper (f:r) = (if isLower f then toUpper f else f) : r
-
-firstToLower :: String -> String
-firstToLower (f:r) = (if isUpper f then toLower f else f) : r
-
 showDotTransition :: (SMstate s, SMevent e) => s -> e -> s -> Code
 showDotTransition st ev  st' = [showDotState st ++ " -> " ++ showDotState st' ++ 
     "[label=<" ++ showDotEvent ev ++ ">];"]
@@ -81,31 +59,6 @@ fsmToDot sm = braceGroup ("digraph " ++ tms'name sm)
             subgraphs = map subgraph superStates
             mapEvents st = concat $ map (\(ev, (_, st')) -> showDotTransition st ev st') 
                 (fromMaybe [] (Map.assocs <$> (stateTransitions sm st)))
-            
-fsmToTable :: (SMstate s, SMevent e, SMaction a) =>
-              TMS s e a -> Code
-fsmToTable sm =
-    table $
-        caption (tms'name sm) ++
-        headerRow ++
-        (concat rowsByState)
-    where
-        table       = wrapl "table style=\"border: 1px solid black;border-collapse:collapse;\"" 
-        caption     = wrap "caption style=\"font-size:120%;font-weight:bold\""
-        headerRow   = row $ concat $ map th ["State", "Substate", "Event", "Actions", "Next State"]
-        row         = wrapl "tr"
-        th          = wrap "th style=\"border:1px solid black;padding:5px\""
-        td          = wrap "td style=\"border:1px solid black;padding:5px\""
-        rowsByState = map (row . transitionToData) stTrans
-        stateRows   = allTransitions sm
-        stTrans     = concat $ map (\st -> filter ((st ==) . tx'current) stateRows) (orderStates sm)
-        parentOf state = fromMaybe state $ ((Map.!?) (tms'childParent sm) state)
-        transitionToData (Transition st ev actions st') =
-            th (show $ parentOf st) ++
-            th (if st == parentOf st then "" else show st) ++
-            td (show ev) ++
-            td (intercalate "<br/>" $ map show actions) ++
-            td (show st')
  
 instance (SMstate s, SMevent e, SMaction a) => Show (Transition s e a) where
     show = showTransition
@@ -142,6 +95,10 @@ mkTms name spec initial =
             , tms'childParent   = parentMap
             , tms'specification = spec
             }
+
+parentOf :: (SMstate s, SMevent e, SMaction a) =>
+            TMS s e a -> s -> s
+parentOf sm state = fromMaybe state $ ((Map.!?) (tms'childParent sm) state)
 
 -- |Order states (lexically) with substates following parents
 orderStates :: (SMstate s, SMevent e, SMaction a) =>
@@ -304,6 +261,5 @@ showStateless4j sm =
         name = tms'name sm
         configName = [i|#{firstToLower name}Config|]
         configureState st =
-            [[i|#{configName}.configure(#{show st})|]] ++
-            (if Map.)
+            [[i|#{configName}.configure(#{show st})|]]
 
