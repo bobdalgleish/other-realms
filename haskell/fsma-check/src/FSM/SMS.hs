@@ -1,12 +1,15 @@
 {-# language GADTs #-}
 {-# language AllowAmbiguousTypes #-}
 {-# language MultiParamTypeClasses #-}
+{-# LANGUAGE QuasiQuotes #-}
 module FSM.SMS where
 
 import           Data.Maybe (fromMaybe, fromJust, maybeToList)
 import           Data.List (nub, break, intercalate, (\\))
 import qualified Data.Map.Strict as Map
+import           Data.Char
 -- import Debug.Trace
+import Data.String.Interpolate
 
 class (Ord s, Show s) => SMstate s where
     showDotState :: s -> String
@@ -53,6 +56,12 @@ wrap tag stuff = ["<" ++ tag ++ ">" ++ stuff ++ "</" ++ (tagOf tag) ++ ">"]
 wrapl tag stuff = ["<" ++ tag ++ ">"] ++ (indent stuff) ++ ["</" ++ (tagOf tag) ++ ">"]
 tagOf tag = head $ words tag
 
+firstToUpper :: String -> String
+firstToUpper (f:r) = (if isLower f then toUpper f else f) : r
+
+firstToLower :: String -> String
+firstToLower (f:r) = (if isUpper f then toLower f else f) : r
+
 showDotTransition :: (SMstate s, SMevent e) => s -> e -> s -> Code
 showDotTransition st ev  st' = [showDotState st ++ " -> " ++ showDotState st' ++ 
     "[label=<" ++ showDotEvent ev ++ ">];"]
@@ -81,7 +90,7 @@ fsmToTable sm =
         headerRow ++
         (concat rowsByState)
     where
-        table       = wrapl "table style=\"1px solid black;border-collapse:collapse;\"" 
+        table       = wrapl "table style=\"border: 1px solid black;border-collapse:collapse;\"" 
         caption     = wrap "caption style=\"font-size:120%;font-weight:bold\""
         headerRow   = row $ concat $ map th ["State", "Substate", "Event", "Actions", "Next State"]
         row         = wrapl "tr"
@@ -284,3 +293,17 @@ showHaskell sm = fsmToHaskellStates ++
         stateName  = smName ++ "'State"
         eventName  = smName ++ "'Event"
         actionName = smName ++ "'Action"
+
+-- |Generate Java code for stateless4j library
+showStateless4j :: (SMstate s, SMevent e, SMaction a) => 
+                   TMS s e a -> Code
+showStateless4j sm =
+    [[i|StateMachineConfig<State, Trigger> #{configName} = new StateMachineConfig<>();|]]
+    ++ (concat $ map configureState $ orderStates sm)
+    where
+        name = tms'name sm
+        configName = [i|#{firstToLower name}Config|]
+        configureState st =
+            [[i|#{configName}.configure(#{show st})|]] ++
+            (if Map.)
+
