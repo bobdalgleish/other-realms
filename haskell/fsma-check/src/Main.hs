@@ -1,7 +1,10 @@
+module Main where
+
 import FSM.TSMS
 -- import FSM.RedundancySms
 import FSM.SMS
 import FSM.TableHtml
+import FSM.Dot
 -- import System.IO
 
 {-
@@ -21,6 +24,12 @@ TODO Dynamic state computation -- No, as guards fully subsume this capability
 writeHtmlTable sm = do
     writeFile (tms'name sm ++ ".html") (unlines $ fsmToTable sm)
 
+writeDot sm = do
+    writeFile (tms'name sm ++ ".dot") (unlines $ fsmToDot sm)
+
+writeStateless4j sm = do
+    writeFile (tms'name sm ++ "s4j.java") (unlines $ showStateless4j sm)
+
 main = do
     -- putStr $ unlines $ (testChains redundancyFsm (daisyChains $ allTransitions $ tms'specification redundancyFsm))
     -- putStr $ unlines $ showDaisyChain $ daisyChains $ allTransitions $ tms'specification redundancyFsm
@@ -28,6 +37,6 @@ main = do
     -- putStr $ unlines $ showHaskell redundancyFsm
     -- putStr $ unlines $ showHaskell testFsm
     -- putStr $ unlines $ concat testTransitions
-    -- putStr $ unlines $ fsmToDot testFsm
-    writeHtmlTable testFsm
-    -- putStr $ unlines $ showStateless4j testFsm
+    -- writeDot testFsm
+    -- writeHtmlTable testFsm
+    writeStateless4j testFsm

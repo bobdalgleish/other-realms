@@ -1,6 +1,9 @@
 module FSM.Dot where
 
 import FSM.SMS
+import FSM.Code
+import qualified Data.Map.Strict as Map
+import           Data.Maybe (fromMaybe)
 
 fsmToDot :: (SMstate s, SMevent e, SMaction a) =>
             TMS s e a -> Code

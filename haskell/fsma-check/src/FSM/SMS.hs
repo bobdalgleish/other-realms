@@ -44,22 +44,6 @@ showDotTransition :: (SMstate s, SMevent e) => s -> e -> s -> Code
 showDotTransition st ev  st' = [showDotState st ++ " -> " ++ showDotState st' ++ 
     "[label=<" ++ showDotEvent ev ++ ">];"]
 
-fsmToDot :: (SMstate s, SMevent e, SMaction a) =>
-            TMS s e a -> Code
-fsmToDot sm = braceGroup ("digraph " ++ tms'name sm)
-                (concat (
-                    subgraphs ++    
-                    (map mapEvents (Map.keys $ tms'specification sm))))
-        where
-            superStates = filter (\lf -> length lf > 1) $ map (\(st, SmSpec _ _ subs _) -> st:subs)
-                           $ Map.assocs (tms'specification sm)
-            subgraph sg = braceGroup ("subgraph cluster" ++ (show $ head sg)) 
-                            (["label=<" ++ (show $ head sg) ++ ">",
-                              "style = \"rounded\""] ++ (map show sg))
-            subgraphs = map subgraph superStates
-            mapEvents st = concat $ map (\(ev, (_, st')) -> showDotTransition st ev st') 
-                (fromMaybe [] (Map.assocs <$> (stateTransitions sm st)))
- 
 instance (SMstate s, SMevent e, SMaction a) => Show (Transition s e a) where
     show = showTransition
 
@@ -261,5 +245,7 @@ showStateless4j sm =
         name = tms'name sm
         configName = [i|#{firstToLower name}Config|]
         configureState st =
-            [[i|#{configName}.configure(#{show st})|]]
+            [[i|#{configName}.configure(#{show st})|]] ++
+            (if st /= parentOf sm st then [[i|.substateOf(#{show $ parentOf sm st})|]] else []) ++
+            (map (\(ev, (_, st')) -> [i|.permit(#{show st}, #{show st'})|]) (Map.assocs $ fromJust $ stateTransitions sm st))
 
