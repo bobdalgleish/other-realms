@@ -5,7 +5,9 @@ import FSM.TSMS
 import FSM.SMS
 import FSM.TableHtml
 import FSM.Dot
--- import System.IO
+import FSM.Stateless4j
+import FSM.HaskellState
+import System.Environment
 
 {-
 TODO Allow guards on transitions
@@ -30,7 +32,19 @@ writeDot sm = do
 writeStateless4j sm = do
     writeFile (tms'name sm ++ "s4j.java") (unlines $ showStateless4j sm)
 
+writeHaskell sm = do
+    writeFile (tms'name sm ++ "State.hs") (unlines $ showHaskell sm)
+
+selectCommand "haskell" = writeHaskell
+selectCommand "stateless4j" = writeStateless4j
+selectCommand "dot" = writeDot
+selectCommand "table" = writeHtmlTable
+
+run c = (selectCommand  c) testFsm
+
 main = do
+    args <- getArgs
+    (selectCommand $ head args) testFsm
     -- putStr $ unlines $ (testChains redundancyFsm (daisyChains $ allTransitions $ tms'specification redundancyFsm))
     -- putStr $ unlines $ showDaisyChain $ daisyChains $ allTransitions $ tms'specification redundancyFsm
     -- putStr $ unlines $ fsmToDot redundancyFsm
@@ -39,4 +53,4 @@ main = do
     -- putStr $ unlines $ concat testTransitions
     -- writeDot testFsm
     -- writeHtmlTable testFsm
-    writeStateless4j testFsm
+    -- writeStateless4j testFsm
