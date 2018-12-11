@@ -1,0 +1,4 @@
+*.dot
+*.java
+*.html
+TestFSMState.hs
