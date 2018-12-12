@@ -8,6 +8,7 @@ import FSM.Dot
 import FSM.Stateless4j
 import FSM.HaskellState
 import System.Environment
+-- import System.IO
 
 {-
 TODO Allow guards on transitions
@@ -23,17 +24,20 @@ TODO Generate stateless4j tests
 TODO Dynamic state computation -- No, as guards fully subsume this capability
 -}
 
+filepathOf :: String -> FilePath
+filepathOf name = "target/" ++ name
+
 writeHtmlTable sm = do
-    writeFile (tms'name sm ++ ".html") (unlines $ fsmToTable sm)
+    writeFile (filepathOf $ tms'name sm ++ ".html") (unlines $ fsmToTable sm)
 
 writeDot sm = do
-    writeFile (tms'name sm ++ ".dot") (unlines $ fsmToDot sm)
+    writeFile (filepathOf $ tms'name sm ++ ".dot") (unlines $ fsmToDot sm)
 
 writeStateless4j sm = do
-    writeFile (tms'name sm ++ "s4j.java") (unlines $ showStateless4j sm)
+    writeFile (filepathOf $ tms'name sm ++ "s4j.java") (unlines $ showStateless4j sm)
 
 writeHaskell sm = do
-    writeFile (tms'name sm ++ "State.hs") (unlines $ showHaskell sm)
+    writeFile (filepathOf $ tms'name sm ++ "State.hs") (unlines $ showHaskell sm)
 
 selectCommand "haskell" = writeHaskell
 selectCommand "stateless4j" = writeStateless4j

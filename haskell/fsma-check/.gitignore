@@ -2,3 +2,4 @@
 *.java
 *.html
 TestFSMState.hs
+target/
