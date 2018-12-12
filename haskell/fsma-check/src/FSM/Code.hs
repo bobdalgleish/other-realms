@@ -2,7 +2,6 @@
 module FSM.Code where
 
 import           Data.Char
--- import Debug.Trace
 import Data.String.Interpolate
 
 -- |Handle lines of code
